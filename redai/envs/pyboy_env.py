@@ -178,9 +178,18 @@ class Env:
             # Load from savestate
             self.load_state(from_state)
         else:
-            # Reset to ROM start - PyBoy doesn't have reset, so restart
-            self._pyboy.stop()
-            self._init_pyboy()
+            # Check if we have a game start savestate to skip intro
+            import os
+            game_start_path = os.path.join(os.path.dirname(self.rom_path), "..", "game_start.state")
+            if os.path.exists(game_start_path):
+                print(f"Loading game start savestate from {game_start_path}")
+                with open(game_start_path, "rb") as f:
+                    game_start_state = f.read()
+                self.load_state(game_start_state)
+            else:
+                # Reset to ROM start - PyBoy doesn't have reset, so restart
+                self._pyboy.stop()
+                self._init_pyboy()
         
         self._step_count = 0
         self._last_action = 0

@@ -126,6 +126,9 @@ $RECYCLE.BIN/
 debug_*.py
 test_*.py
 temp_*.py
+auto_*.py
+visual_*.py
+check_*.py
 
 # Large model files
 *.pkl

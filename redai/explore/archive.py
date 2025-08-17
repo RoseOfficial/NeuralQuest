@@ -188,16 +188,9 @@ class Archive:
         current_step = self.total_steps
         scored_cells = []
         
-        # Minimum exploration depth to avoid menu loops
-        min_exploration_depth = max(100, current_step // 20)
-        
         for cell in self.cells.values():
-            # Skip early menu states after sufficient exploration
-            if current_step > 1000 and cell.first_seen_step < min_exploration_depth:
-                continue
-            
-            # After first episode, prioritize very recent discoveries (likely deeper gameplay)
-            if current_step > 1400 and cell.first_seen_step < current_step * 0.8:
+            # Only skip the very earliest states (first 500 steps) to avoid menu loops
+            if current_step > 2000 and cell.first_seen_step < 500:
                 continue
                 
             score = self._compute_frontier_score(cell, current_step)
@@ -238,26 +231,31 @@ class Archive:
             Frontier score
         """
         # Factors that make a good frontier cell:
-        # 1. Low visit count (unexplored)
-        # 2. Reasonable age (not too old, not too new)
-        # 3. Depth approximation (later discoveries may be deeper)
+        # 1. Low visit count (unexplored areas)
+        # 2. Later discovery time (likely deeper in game)
+        # 3. Recent enough to be relevant but not too recent
         
-        # Visit count factor (lower is better)
+        # Visit count factor (strongly favor unvisited areas)
         visit_factor = 1.0 / (1.0 + cell.visit_count)
         
-        # Age factor (prefer moderately aged cells)
+        # Progression factor (strongly favor later discoveries as they're likely deeper)
+        # Exponential weight favoring states discovered later in training
+        progression_factor = min(1.0, cell.first_seen_step / max(1000, current_step * 0.1))
+        
+        # Recency factor (avoid states that are too recent - might be dead ends)
         age = current_step - cell.first_seen_step
-        normalized_age = age / max(current_step, 1)
-        age_factor = 4 * normalized_age * (1 - normalized_age)  # Inverted U-shape
+        if age < 50:  # Very recent discoveries might be dead ends
+            recency_factor = 0.3
+        elif age < 200:  # Somewhat recent
+            recency_factor = 0.8
+        else:  # Older discoveries
+            recency_factor = 1.0
         
-        # Depth approximation (later discoveries might be deeper)
-        depth_factor = cell.first_seen_step / max(current_step, 1)
-        
-        # Combine factors
+        # Combine factors with strong emphasis on progression and low visit count
         score = (
-            0.6 * visit_factor +
-            0.3 * age_factor +
-            0.1 * depth_factor
+            0.5 * visit_factor +           # Favor unexplored states
+            0.4 * progression_factor +     # Strongly favor later discoveries 
+            0.1 * recency_factor          # Slight penalty for very recent states
         )
         
         return score
