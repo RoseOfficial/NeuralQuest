@@ -165,7 +165,6 @@ NeuralQuest/
 │   └── train/          # Training infrastructure
 ├── configs/            # TOML configurations
 ├── scripts/            # Training & evaluation scripts
-├── docs/              # Documentation & notes
 ├── roms/              # Game ROMs (gitignored)
 ├── requirements.txt   # Dependencies
 ├── setup.py          # Package installation

@@ -44,8 +44,7 @@ def check_files():
         'configs/smoke_test.toml',
         'scripts/train_pokemon.py',
         'scripts/eval_pokemon.py',
-        'scripts/verify_production.py',
-        'docs/PRD.txt'
+        'scripts/verify_production.py'
     ]
     
     failed = []
