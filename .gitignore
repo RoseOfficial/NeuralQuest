@@ -262,3 +262,8 @@ ai_config.json
 copilot_config.json
 claude_config.json
 CLAUDE.md
+
+# Debug and temporary files
+debug_*.py
+temp_*.py
+test_*.py

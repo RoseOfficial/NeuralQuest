@@ -146,14 +146,27 @@ class Trainer:
             raise RuntimeError("Environment and networks must be initialized")
         
         transitions = []
-        obs = self.env.reset()
+        # Only reset if this is the very first rollout
+        if self.global_step == 0:
+            obs = self.env.reset()
+            print(f"First rollout - reset environment")
+        else:
+            # Continue from where we left off - get current observation
+            obs = self.env._get_observation()
+            print(f"Continuing rollout from global step {self.global_step}")
         
-        for _ in range(self.config.algo.batch_horizon):
+        print(f"Starting rollout: batch_horizon={self.config.algo.batch_horizon}, global_step={self.global_step}", flush=True)
+        
+        for step_idx in range(self.config.algo.batch_horizon):
             # Get action from policy
             action, log_prob, value, aux_info = self.actor_critic.act(obs)
             
             # Step environment
             next_obs, env_reward, done, info = self.env.step(action)
+            
+            # Debug episode progression
+            if step_idx % 500 == 0 or done:
+                print(f"Step {step_idx} (global {self.global_step}): episode_step={info['episode_step']}, done={done}, max_steps={self.config.env.max_episode_steps}")
             
             # Compute intrinsic reward
             intrinsic_reward = self.rnd.intrinsic_reward(next_obs)
@@ -185,22 +198,41 @@ class Trainer:
             
             # Episode end handling
             if done:
-                episode_reward = sum(t.reward for t in transitions[-info["episode_step"]:])
-                self.episode_rewards.append(episode_reward)
-                self.episode_lengths.append(info["episode_step"])
+                # Record episode completion BEFORE reset
+                episode_length = info["episode_step"]
+                self.episode_lengths.append(episode_length)
                 self.episode_count += 1
                 
+                # Calculate episode reward from the transitions that belong to this episode
+                episode_start_idx = max(0, len(transitions) - episode_length)
+                episode_reward = sum(t.reward for t in transitions[episode_start_idx:])
+                self.episode_rewards.append(episode_reward)
+                
+                print(f"Episode {self.episode_count} completed: {episode_length} steps, reward: {episode_reward:.3f}", flush=True)
+                print(f"Frontier probability: {self.config.archive.p_frontier}", flush=True)
+                
                 # Maybe reset from frontier
-                if (self.archive is not None and 
-                    np.random.random() < self.config.archive.p_frontier):
-                    frontier_cell = self.archive.sample_frontier()
-                    if frontier_cell is not None:
-                        self.env.load_state(frontier_cell.savestate)
-                        obs = self.env.reset(from_state=frontier_cell.savestate)
-                        print(f"Reset from frontier cell {frontier_cell.cell_id}")
+                try:
+                    rand_val = np.random.random()
+                    print(f"Frontier sampling: rand={rand_val:.3f}, p_frontier={self.config.archive.p_frontier}", flush=True)
+                    
+                    if (self.archive is not None and rand_val < self.config.archive.p_frontier):
+                        print(f"Attempting frontier sampling...", flush=True)
+                        frontier_cell = self.archive.sample_frontier()
+                        if frontier_cell is not None:
+                            print(f"SUCCESS: Reset from frontier cell {frontier_cell.cell_id} (step {frontier_cell.first_seen_step})", flush=True)
+                            # Fix: Don't call load_state() AND reset(from_state=...) - that loads twice!
+                            obs = self.env.reset(from_state=frontier_cell.savestate)
+                        else:
+                            print(f"FAILED: No frontier cell available, doing regular reset", flush=True)
+                            obs = self.env.reset()
                     else:
+                        print(f"Regular reset (no frontier sampling)", flush=True)
                         obs = self.env.reset()
-                else:
+                except Exception as e:
+                    print(f"ERROR in frontier sampling: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
                     obs = self.env.reset()
         
         return transitions

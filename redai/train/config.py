@@ -11,7 +11,7 @@ class EnvConfig:
     frame_skip: int = 4
     sticky_p: float = 0.1
     seed: int = 1337
-    max_episode_steps: int = 10000
+    max_episode_steps: int = 1500  # Shorter episodes to enable frontier sampling
     deterministic: bool = True
     headless: bool = True
 
@@ -23,7 +23,7 @@ class AlgoConfig:
     gae_lambda: float = 0.95
     lr_policy: float = 3e-4
     lr_value: float = 3e-4
-    batch_horizon: int = 2048
+    batch_horizon: int = 1500  # Match episode length for proper episode completion
     entropy_coeff: float = 0.01
     value_coeff: float = 0.5
     grad_clip: float = 5.0

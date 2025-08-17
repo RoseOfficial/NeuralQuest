@@ -6,7 +6,7 @@
 frame_skip = 4          # Standard frame skip for RPG pacing
 sticky_p = 0.05         # Lower sticky probability for precise menu navigation
 seed = 1337             # Reproducible seed
-max_episode_steps = 50000  # Longer episodes for RPG progression
+max_episode_steps = 1500   # Shorter episodes to enable frontier sampling
 deterministic = true    # Enable deterministic execution
 
 [algo]
@@ -14,7 +14,7 @@ gamma = 0.999           # Higher discount for long-term planning in RPGs
 gae_lambda = 0.97       # Higher GAE lambda for temporal credit assignment
 lr_policy = 2e-4        # Slightly lower learning rate for stability
 lr_value = 2e-4         # Matched value learning rate
-batch_horizon = 4096    # Larger batch for better gradient estimates
+batch_horizon = 1500    # Match episode length for proper episode completion
 entropy_coeff = 0.02    # Higher entropy for exploration variety
 value_coeff = 0.5       # Standard value coefficient
 grad_clip = 10.0        # Higher gradient clip for stability
@@ -31,7 +31,7 @@ hidden_dim = 256        # Larger RND networks for complex state space
 [archive]
 hash_bits = 64          # Full 64-bit hashing for large state space
 capacity = 100000       # Much larger archive for RPG world exploration
-p_frontier = 0.15       # Lower frontier probability (let natural progression happen)
+p_frontier = 0.8        # Higher frontier probability to escape menu loops
 novel_lru = 10000       # Larger LRU window for RPG state persistence
 evict_on = "old_and_often"  # Eviction strategy
 hamming_threshold = 3   # Higher threshold for meaningful state differences

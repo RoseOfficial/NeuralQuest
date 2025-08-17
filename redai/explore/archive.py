@@ -188,7 +188,18 @@ class Archive:
         current_step = self.total_steps
         scored_cells = []
         
+        # Minimum exploration depth to avoid menu loops
+        min_exploration_depth = max(100, current_step // 20)
+        
         for cell in self.cells.values():
+            # Skip early menu states after sufficient exploration
+            if current_step > 1000 and cell.first_seen_step < min_exploration_depth:
+                continue
+            
+            # After first episode, prioritize very recent discoveries (likely deeper gameplay)
+            if current_step > 1400 and cell.first_seen_step < current_step * 0.8:
+                continue
+                
             score = self._compute_frontier_score(cell, current_step)
             scored_cells.append((score, cell))
         
