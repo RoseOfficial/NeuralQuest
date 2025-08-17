@@ -1,0 +1,264 @@
+# NeuralQuest .gitignore
+
+# Training artifacts and outputs
+checkpoints/
+logs/
+*.log
+test_checkpoints/
+test_logs/
+
+# Game Boy ROMs and save files
+roms/
+*.gb
+*.gbc
+*.gba
+*.sav
+*.sgm
+*.ram
+*.rtc
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# Sublime Text
+*.sublime-*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Debug files
+debug_*.py
+test_*.py
+temp_*.py
+
+# Large model files
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.model
+
+# Data files
+data/
+datasets/
+*.csv
+*.json
+*.xml
+*.yaml
+*.yml
+
+# Configuration overrides
+config_local.toml
+config_dev.toml
+*.local.toml
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+.readthedocs.yml
+
+# PyBoy specific
+*.state
+*.bmp
+*.png
+*.jpg
+*.gif
+*.mp4
+*.avi
+
+# NumPy arrays
+*.npy
+*.npz
+
+# Profiling
+*.prof
+*.pstats
+
+# Environment variables
+.env.local
+.env.development
+.env.test
+.env.production
+
+# AI Platforms and Extensions
+# Claude Desktop
+.claude/
+claude_history/
+claude_sessions/
+
+# GitHub Copilot
+.copilot/
+copilot_cache/
+
+# Cursor AI
+.cursor/
+cursor_settings/
+
+# Replit AI
+.replit
+replit.nix
+
+# ChatGPT/OpenAI
+openai_cache/
+.openai/
+chatgpt_history/
+
+# Anthropic Claude
+.anthropic/
+anthropic_cache/
+
+# Google Bard/Gemini
+.bard/
+.gemini/
+
+# Microsoft Copilot
+.copilot/
+copilot_workspace/
+
+# JetBrains AI
+.idea/copilot/
+.idea/ai/
+
+# Tabnine
+.tabnine/
+tabnine_cache/
+
+# Kite AI
+.kite/
+
+# DeepCode/Snyk Code
+.deepcode/
+.snyk/
+
+# CodeWhisperer
+.aws-codecommit/
+codewhisperer_cache/
+
+# AI-generated content markers
+*_ai_generated*
+*_copilot*
+*_claude*
+*_gpt*
+ai_suggestions/
+generated_code/
+
+# AI model files and caches
+*.ai
+*.model
+*.checkpoint
+*.ckpt
+*.safetensors
+*.bin
+model_cache/
+ai_cache/
+llm_cache/
+
+# AI chat logs and conversations
+chat_logs/
+conversation_history/
+ai_sessions/
+prompt_history/
+
+# AI configuration files
+ai_config.json
+.aiconfig
+copilot_config.json
+claude_config.json
+CLAUDE.md

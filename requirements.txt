@@ -1,0 +1,19 @@
+# NeuralQuest Requirements
+# Domain-agnostic RL agent for Game Boy games
+
+# Core dependencies
+numpy>=1.21.0
+pyboy>=1.6.0
+
+# Configuration management
+tomli>=2.0.0;python_version<"3.11"  # TOML parsing for Python < 3.11
+tomllib-w>=0.0.6;python_version>="3.11"  # Backport for consistency
+
+# Testing (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Development tools (optional)
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0

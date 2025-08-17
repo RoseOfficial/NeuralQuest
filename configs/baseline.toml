@@ -1,0 +1,45 @@
+# NeuralQuest Baseline Configuration
+# Domain-agnostic RL agent for Game Boy games
+
+[env]
+frame_skip = 4          # Repeat action for N frames
+sticky_p = 0.1          # Probability of repeating previous action
+seed = 1337             # Random seed for reproducibility
+max_episode_steps = 10000  # Maximum steps per episode
+deterministic = true    # Enable deterministic execution
+
+[algo]
+gamma = 0.995           # Discount factor
+gae_lambda = 0.95       # GAE lambda parameter
+lr_policy = 3e-4        # Policy learning rate
+lr_value = 3e-4         # Value learning rate
+batch_horizon = 2048    # Rollout length before update
+entropy_coeff = 0.01    # Entropy regularization coefficient
+value_coeff = 0.5       # Value loss coefficient
+grad_clip = 5.0         # Gradient clipping threshold
+epochs_per_update = 4   # Epochs per update cycle
+minibatch_size = 256    # Minibatch size for updates
+
+[rnd]
+beta = 0.2              # Intrinsic reward scaling factor
+lr = 1e-3               # RND predictor learning rate
+reward_clip = 5.0       # Maximum intrinsic reward value
+norm_ema = 0.99         # EMA decay rate for reward normalization
+hidden_dim = 128        # Hidden dimension for RND networks
+
+[archive]
+hash_bits = 64          # Number of bits in cell hash
+capacity = 20000        # Maximum number of cells to store
+p_frontier = 0.25       # Probability of frontier reset
+novel_lru = 5000        # LRU window for novelty detection
+evict_on = "old_and_often"  # Eviction strategy
+hamming_threshold = 2   # Minimum Hamming distance for novelty
+projection_dim = 64     # Dimension for random projection
+
+[train]
+epochs = 10000          # Total training epochs
+ckpt_every = 100        # Checkpoint save frequency
+log_every = 10          # Logging frequency
+eval_every = 500        # Evaluation frequency
+save_dir = "checkpoints"  # Checkpoint directory
+log_dir = "logs"        # Log directory
