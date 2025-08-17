@@ -81,6 +81,7 @@ class Trainer:
             sticky_p=self.config.env.sticky_p,
             max_episode_steps=self.config.env.max_episode_steps,
             deterministic=self.config.env.deterministic,
+            headless=self.config.env.headless,
             seed=self.config.env.seed
         )
         

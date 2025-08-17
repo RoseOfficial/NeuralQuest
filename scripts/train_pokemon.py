@@ -80,6 +80,12 @@ def main():
         help="Enable debug mode"
     )
     
+    parser.add_argument(
+        "--render",
+        action="store_true",
+        help="Show PyBoy game window during training"
+    )
+    
     args = parser.parse_args()
     
     # Get ROM path
@@ -123,6 +129,10 @@ def main():
     
     for override in args.override:
         train_args.extend(["--override", override])
+    
+    # Add render option
+    if args.render:
+        train_args.extend(["--override", "env.headless=false"])
     
     # Set up sys.argv for the training script
     original_argv = sys.argv

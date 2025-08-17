@@ -13,6 +13,7 @@ class EnvConfig:
     seed: int = 1337
     max_episode_steps: int = 10000
     deterministic: bool = True
+    headless: bool = True
 
 
 @dataclass
