@@ -3,6 +3,7 @@
 import numpy as np
 from typing import Tuple, Dict, Optional, Any
 import random
+from ..nets.progress_detector import ProgressDetector
 
 
 class Env:
@@ -53,6 +54,10 @@ class Env:
         self._step_count = 0
         self._ram_history = []
         self._episode_count = 0
+        self._prev_obs = None
+        
+        # Initialize progress detector for learned progress
+        self._progress_detector = None
         
         if seed is not None:
             self.seed(seed)
@@ -78,6 +83,16 @@ class Env:
         
         # Get initial RAM state
         self._update_ram_history()
+        
+        # Initialize progress detector after we know observation dimension
+        if self._progress_detector is None:
+            obs_dim = len(self._get_observation())
+            self._progress_detector = ProgressDetector(
+                input_dim=obs_dim,
+                hidden_dim=256,
+                learning_rate=3e-4,
+                seed=42
+            )
     
     def _get_ram_vector(self) -> np.ndarray:
         """Get current RAM state as normalized vector."""
@@ -195,6 +210,7 @@ class Env:
         self._last_action = 0
         self._ram_history.clear()
         self._episode_count += 1
+        self._prev_obs = None
         
         # Initialize observation history
         for _ in range(self.frame_stack):
@@ -228,8 +244,16 @@ class Env:
         self._update_ram_history()
         obs = self._get_observation()
         
-        # No external rewards - purely intrinsic
+        # Compute progress-aware reward
         reward = 0.0
+        if self._prev_obs is not None and self._progress_detector is not None:
+            # Base intrinsic reward (will be enhanced by progress detector)
+            base_intrinsic = 0.1  # Small base exploration bonus
+            
+            # Get progress-enhanced reward
+            reward = self._progress_detector.compute_progress_reward(
+                self._prev_obs, obs, base_intrinsic
+            )
         
         # Episode termination
         done = self._step_count >= self.max_episode_steps
@@ -237,8 +261,12 @@ class Env:
         info = {
             "episode_step": self._step_count,
             "episode_count": self._episode_count,
-            "action_name": self.ACTIONS[action]
+            "action_name": self.ACTIONS[action],
+            "progress_reward": reward
         }
+        
+        # Store current observation for next step
+        self._prev_obs = obs.copy()
         
         return obs, reward, done, info
     
@@ -290,6 +318,10 @@ class Env:
             single_ram_size = (0xA000 - 0x8000) + (0xC000 - 0xA000) + (0xE000 - 0xC000) + (0xFEA0 - 0xFE00) + (0xFFFF - 0xFF80)
             return single_ram_size * self.frame_stack
         return len(self._get_observation())
+    
+    def get_progress_detector(self) -> Optional[ProgressDetector]:
+        """Get progress detector for training updates."""
+        return self._progress_detector
     
     def close(self) -> None:
         """Clean up resources."""

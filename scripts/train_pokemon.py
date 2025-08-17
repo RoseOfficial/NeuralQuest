@@ -41,7 +41,7 @@ def main():
     
     parser.add_argument(
         "--mode",
-        choices=["standard", "fast", "exploration", "smoke"],
+        choices=["standard", "fast", "exploration", "progress", "smoke"],
         default="standard",
         help="Training mode with preset configurations"
     )
@@ -96,6 +96,7 @@ def main():
         "standard": "configs/pokemon_red.toml",
         "fast": "configs/pokemon_red_fast.toml", 
         "exploration": "configs/pokemon_red_exploration.toml",
+        "progress": "configs/pokemon_red_progress.toml",
         "smoke": "configs/smoke_test.toml"
     }
     

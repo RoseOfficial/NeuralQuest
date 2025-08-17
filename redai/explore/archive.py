@@ -2,10 +2,13 @@
 
 import numpy as np
 from dataclasses import dataclass
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, TYPE_CHECKING
 import heapq
 import random
 from .hashing import SimHasher
+
+if TYPE_CHECKING:
+    from ..nets.progress_detector import ProgressDetector
 
 
 @dataclass
@@ -16,6 +19,7 @@ class CellRecord:
     visit_count: int
     first_seen_step: int
     last_seen_step: int
+    observation: Optional[np.ndarray] = None  # Store observation for progress scoring
     
     def __lt__(self, other: "CellRecord") -> bool:
         """Comparison for heap operations (by visit count)."""
@@ -102,7 +106,8 @@ class Archive:
             savestate=savestate,
             visit_count=1,
             first_seen_step=step,
-            last_seen_step=step
+            last_seen_step=step,
+            observation=obs.copy()  # Store observation for progress scoring
         )
         
         self.cells[cell_id] = new_cell
@@ -170,13 +175,14 @@ class Archive:
         if cell_to_evict in self.recent_cells:
             self.recent_cells.remove(cell_to_evict)
     
-    def sample_frontier(self, top_k: int = 512, temperature: float = 1.0) -> Optional[CellRecord]:
+    def sample_frontier(self, top_k: int = 512, temperature: float = 1.0, progress_detector: Optional["ProgressDetector"] = None) -> Optional[CellRecord]:
         """
         Sample a frontier cell for resetting exploration.
         
         Args:
             top_k: Number of top frontier cells to consider
             temperature: Softmax temperature for sampling
+            progress_detector: Optional progress detector for enhanced scoring
             
         Returns:
             Selected frontier cell or None if archive is empty
@@ -193,7 +199,7 @@ class Archive:
             if current_step > 2000 and cell.first_seen_step < 500:
                 continue
                 
-            score = self._compute_frontier_score(cell, current_step)
+            score = self._compute_frontier_score(cell, current_step, progress_detector)
             scored_cells.append((score, cell))
         
         # Sort by score (descending) and take top_k
@@ -217,7 +223,7 @@ class Archive:
         
         return top_cells[selected_idx][1]
     
-    def _compute_frontier_score(self, cell: CellRecord, current_step: int) -> float:
+    def _compute_frontier_score(self, cell: CellRecord, current_step: int, progress_detector: Optional["ProgressDetector"] = None) -> float:
         """
         Compute frontier score for a cell.
         
@@ -226,6 +232,7 @@ class Archive:
         Args:
             cell: Cell record
             current_step: Current global step
+            progress_detector: Optional progress detector for enhanced scoring
             
         Returns:
             Frontier score
@@ -251,12 +258,31 @@ class Archive:
         else:  # Older discoveries
             recency_factor = 1.0
         
+        # Progress-based factor using learned detector
+        progress_factor = 0.0
+        if progress_detector is not None and cell.observation is not None:
+            try:
+                progress_priority = progress_detector.compute_state_priority(cell.observation)
+                progress_factor = progress_priority
+            except:
+                progress_factor = 0.0
+        
         # Combine factors with strong emphasis on progression and low visit count
-        score = (
-            0.5 * visit_factor +           # Favor unexplored states
-            0.4 * progression_factor +     # Strongly favor later discoveries 
-            0.1 * recency_factor          # Slight penalty for very recent states
-        )
+        if progress_detector is not None:
+            # With progress detector: emphasize learned progress potential
+            score = (
+                0.3 * visit_factor +           # Favor unexplored states
+                0.3 * progression_factor +     # Favor later discoveries 
+                0.3 * progress_factor +        # Favor high-progress states
+                0.1 * recency_factor          # Slight penalty for very recent states
+            )
+        else:
+            # Without progress detector: use original scoring
+            score = (
+                0.5 * visit_factor +           # Favor unexplored states
+                0.4 * progression_factor +     # Strongly favor later discoveries 
+                0.1 * recency_factor          # Slight penalty for very recent states
+            )
         
         return score
     
