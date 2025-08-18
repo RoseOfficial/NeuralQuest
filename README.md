@@ -288,4 +288,4 @@ MIT License - see LICENSE file for details.
 
 ## 🙏 Acknowledgments
 
-Built with PyBoy emulator and inspired by OpenAI's curiosity-driven exploration research.
+Built with PyBoy emulator and inspired by curiosity-driven exploration research.
