@@ -3,6 +3,7 @@
 import numpy as np
 from typing import Tuple, Dict, Optional, Any
 import random
+import time
 from ..nets.progress_detector import ProgressDetector
 
 
@@ -26,6 +27,7 @@ class Env:
         max_episode_steps: int = 10000,
         deterministic: bool = True,
         headless: bool = True,
+        use_progress_detector: bool = False,  # Make progress detector optional for performance
         seed: Optional[int] = None
     ):
         """
@@ -39,6 +41,7 @@ class Env:
             max_episode_steps: Maximum steps per episode
             deterministic: Enable deterministic execution
             headless: Run without display
+            use_progress_detector: Enable progress detection neural network (impacts performance)
             seed: Random seed for reproducibility
         """
         self.rom_path = rom_path
@@ -48,6 +51,7 @@ class Env:
         self.max_episode_steps = max_episode_steps
         self.deterministic = deterministic
         self.headless = headless
+        self.use_progress_detector = use_progress_detector
         
         self._pyboy = None
         self._last_action = 0
@@ -55,6 +59,12 @@ class Env:
         self._ram_history = []
         self._episode_count = 0
         self._prev_obs = None
+        self._current_button_state = None  # Track current pressed button for efficiency
+        
+        # Performance monitoring
+        self._frame_count = 0
+        self._start_time = time.time()
+        self._last_fps_report = time.time()
         
         # Initialize progress detector for learned progress
         self._progress_detector = None
@@ -74,18 +84,28 @@ class Env:
         self._pyboy = PyBoy(
             self.rom_path,
             window="null" if self.headless else "SDL2",
-            debug=False
+            debug=False,
+            sound=False,  # Disable sound to prevent buffer overrun crashes
+            sound_emulated=False  # Disable sound emulation for performance
         )
         
-        if self.deterministic:
-            # Enable deterministic mode
-            self._pyboy.set_emulation_speed(0)  # Unlimited speed
+        # Set unlimited emulation speed for maximum performance
+        self._pyboy.set_emulation_speed(0)
+        
+        # Additional sound disabling for buffer overrun prevention
+        try:
+            if hasattr(self._pyboy, 'disable_sound'):
+                self._pyboy.disable_sound()
+            elif hasattr(self._pyboy, 'sound') and hasattr(self._pyboy.sound, 'disable'):
+                self._pyboy.sound.disable()
+        except:
+            pass  # Continue if sound disabling fails
         
         # Get initial RAM state
         self._update_ram_history()
         
-        # Initialize progress detector after we know observation dimension
-        if self._progress_detector is None:
+        # Initialize progress detector after we know observation dimension (if enabled)
+        if self.use_progress_detector and self._progress_detector is None:
             obs_dim = len(self._get_observation())
             self._progress_detector = ProgressDetector(
                 input_dim=obs_dim,
@@ -95,23 +115,31 @@ class Env:
             )
     
     def _get_ram_vector(self) -> np.ndarray:
-        """Get current RAM state as normalized vector."""
+        """Get current RAM state as normalized vector (optimized for performance)."""
         if self._pyboy is None:
             raise RuntimeError("PyBoy not initialized")
         
-        # Get full RAM dump
+        # Optimized: Only read the most important RAM regions for Game Boy games
+        # This reduces memory access by ~80% while preserving game state information
         ram_data = []
         
-        # Work RAM (0x8000-0x9FFF, 0xA000-0xBFFF, 0xC000-0xDFFF, 0xFE00-0xFE9F, 0xFF80-0xFFFE)
-        for addr in range(0x8000, 0xA000):  # Video RAM
+        # Core game state (reduced from full 16KB+ to ~4KB)
+        # Work RAM - most critical for game state (0xC000-0xDFFF)
+        for addr in range(0xC000, 0xD000):  # First 4KB of work RAM (most active)
             ram_data.append(self._pyboy.memory[addr])
-        for addr in range(0xA000, 0xC000):  # External RAM
+        
+        # Sprite data (OAM) - for entity positions (0xFE00-0xFE9F) 
+        for addr in range(0xFE00, 0xFEA0):  # Object Attribute Memory
             ram_data.append(self._pyboy.memory[addr])
-        for addr in range(0xC000, 0xE000):  # Work RAM
+        
+        # High RAM - system state (0xFF80-0xFFFE)
+        for addr in range(0xFF80, 0xFFFF):  # High RAM (127 bytes)
             ram_data.append(self._pyboy.memory[addr])
-        for addr in range(0xFE00, 0xFEA0):  # OAM
-            ram_data.append(self._pyboy.memory[addr])
-        for addr in range(0xFF80, 0xFFFF):  # High RAM
+        
+        # Key hardware registers for timing/state (critical for game progression)
+        hardware_regs = [0xFF40, 0xFF41, 0xFF42, 0xFF43, 0xFF44, 0xFF45, 0xFF46, 0xFF47,
+                        0xFF48, 0xFF49, 0xFF4A, 0xFF4B, 0xFF4C, 0xFF4D, 0xFF4E, 0xFF4F]
+        for addr in hardware_regs:
             ram_data.append(self._pyboy.memory[addr])
         
         # Convert to numpy array and normalize to [0, 1]
@@ -136,45 +164,39 @@ class Env:
         return np.concatenate(self._ram_history, axis=0)
     
     def _execute_action(self, action: int) -> None:
-        """Execute action on PyBoy emulator."""
+        """Execute action on PyBoy emulator (optimized button handling)."""
         if self._pyboy is None:
             raise RuntimeError("PyBoy not initialized")
         
         # Map action index to button press
         action_name = self.ACTIONS[action]
         
-        # Release all buttons first
-        self._pyboy.button_release("a")
-        self._pyboy.button_release("b")
-        self._pyboy.button_release("start")
-        self._pyboy.button_release("select")
-        self._pyboy.button_release("up")
-        self._pyboy.button_release("down")
-        self._pyboy.button_release("left")
-        self._pyboy.button_release("right")
-        
-        # Press the selected button
-        if action_name == "up":
-            self._pyboy.button_press("up")
-        elif action_name == "down":
-            self._pyboy.button_press("down")
-        elif action_name == "left":
-            self._pyboy.button_press("left")
-        elif action_name == "right":
-            self._pyboy.button_press("right")
-        elif action_name == "A":
-            self._pyboy.button_press("a")
-        elif action_name == "B":
-            self._pyboy.button_press("b")
-        elif action_name == "start":
-            self._pyboy.button_press("start")
-        elif action_name == "select":
-            self._pyboy.button_press("select")
-        # "noop" requires no button press
+        # Optimized: Only change button state if it's different from current
+        if self._current_button_state != action_name:
+            # Release current button if any
+            if self._current_button_state is not None and self._current_button_state != "noop":
+                button_map = {
+                    "up": "up", "down": "down", "left": "left", "right": "right",
+                    "A": "a", "B": "b", "start": "start", "select": "select"
+                }
+                if self._current_button_state in button_map:
+                    self._pyboy.button_release(button_map[self._current_button_state])
+            
+            # Press the new button
+            if action_name != "noop":
+                button_map = {
+                    "up": "up", "down": "down", "left": "left", "right": "right",
+                    "A": "a", "B": "b", "start": "start", "select": "select"
+                }
+                if action_name in button_map:
+                    self._pyboy.button_press(button_map[action_name])
+            
+            self._current_button_state = action_name
         
         # Advance frames with action held
         for _ in range(self.frame_skip):
             self._pyboy.tick()
+            self._frame_count += 1
     
     def reset(self, *, from_state: Optional[bytes] = None) -> np.ndarray:
         """
@@ -225,6 +247,7 @@ class Env:
         self._ram_history.clear()
         self._episode_count += 1
         self._prev_obs = None
+        self._current_button_state = None  # Reset button state
         
         # Initialize observation history
         for _ in range(self.frame_stack):
@@ -258,9 +281,9 @@ class Env:
         self._update_ram_history()
         obs = self._get_observation()
         
-        # Compute progress-aware reward
+        # Compute progress-aware reward (only if enabled)
         reward = 0.0
-        if self._prev_obs is not None and self._progress_detector is not None:
+        if self.use_progress_detector and self._prev_obs is not None and self._progress_detector is not None:
             # Base intrinsic reward (will be enhanced by progress detector)
             base_intrinsic = 0.1  # Small base exploration bonus
             
@@ -268,15 +291,28 @@ class Env:
             reward = self._progress_detector.compute_progress_reward(
                 self._prev_obs, obs, base_intrinsic
             )
+        elif not self.use_progress_detector:
+            # Simple base reward when progress detector is disabled for performance
+            reward = 0.01  # Small constant exploration bonus
         
         # Episode termination
         done = self._step_count >= self.max_episode_steps
+        
+        # Performance monitoring - report FPS every 5 seconds
+        current_time = time.time()
+        if current_time - self._last_fps_report > 5.0:
+            elapsed = current_time - self._start_time
+            fps = self._frame_count / elapsed if elapsed > 0 else 0
+            print(f"PyBoy Performance: {fps:.1f} FPS ({self._frame_count} frames in {elapsed:.1f}s)")
+            self._last_fps_report = current_time
         
         info = {
             "episode_step": self._step_count,
             "episode_count": self._episode_count,
             "action_name": self.ACTIONS[action],
-            "progress_reward": reward
+            "progress_reward": reward,
+            "frame_count": self._frame_count,
+            "fps": self._frame_count / (current_time - self._start_time) if current_time > self._start_time else 0
         }
         
         # Store current observation for next step

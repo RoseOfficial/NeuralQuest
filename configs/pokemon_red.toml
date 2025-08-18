@@ -8,6 +8,8 @@ sticky_p = 0.05         # Lower sticky probability for precise menu navigation
 seed = 1337             # Reproducible seed
 max_episode_steps = 1500   # Shorter episodes to enable frontier sampling
 deterministic = true    # Enable deterministic execution
+headless = true         # Run without display for performance
+use_progress_detector = false  # Disable progress detector for maximum performance
 
 [algo]
 gamma = 0.999           # Higher discount for long-term planning in RPGs

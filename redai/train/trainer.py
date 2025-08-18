@@ -86,6 +86,7 @@ class Trainer:
             max_episode_steps=self.config.env.max_episode_steps,
             deterministic=self.config.env.deterministic,
             headless=self.config.env.headless,
+            use_progress_detector=getattr(self.config.env, 'use_progress_detector', False),  # Optional flag
             seed=self.config.env.seed
         )
         
