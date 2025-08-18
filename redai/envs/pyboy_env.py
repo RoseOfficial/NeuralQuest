@@ -194,9 +194,23 @@ class Env:
             self.load_state(from_state)
         else:
             # Check if we have a game start savestate to skip intro
-            import os
-            game_start_path = os.path.join(os.path.dirname(self.rom_path), "..", "game_start.state")
-            if os.path.exists(game_start_path):
+            from pathlib import Path
+            
+            # Try multiple possible locations for game_start.state
+            rom_path_obj = Path(self.rom_path)
+            possible_paths = [
+                rom_path_obj.parent / "game_start.state",  # Same directory as ROM
+                rom_path_obj.parent.parent / "game_start.state",  # Parent directory
+                Path.cwd() / "game_start.state",  # Current working directory
+            ]
+            
+            game_start_path = None
+            for path in possible_paths:
+                if path.exists():
+                    game_start_path = path
+                    break
+            
+            if game_start_path:
                 print(f"Loading game start savestate from {game_start_path}")
                 with open(game_start_path, "rb") as f:
                     game_start_state = f.read()

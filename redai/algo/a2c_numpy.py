@@ -309,24 +309,3 @@ def compute_gae(
         next_value = values[t]
     
     return np.array(advantages), np.array(returns)
-
-
-def discount_cumsum(x: np.ndarray, discount: float) -> np.ndarray:
-    """
-    Compute discounted cumulative sum.
-    
-    Args:
-        x: Array to compute cumsum over
-        discount: Discount factor
-        
-    Returns:
-        Discounted cumulative sum
-    """
-    cumsum = 0
-    result = np.zeros_like(x)
-    
-    for t in reversed(range(len(x))):
-        cumsum = x[t] + discount * cumsum
-        result[t] = cumsum
-    
-    return result

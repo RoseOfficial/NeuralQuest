@@ -4,7 +4,8 @@ import numpy as np
 import os
 import csv
 import time
-from typing import Dict, List, Any, Optional, Tuple
+import logging
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 from ..envs.pyboy_env import Env
@@ -43,6 +44,9 @@ class Trainer:
         """
         self.config = config
         config.ensure_dirs()
+        
+        # Setup logger
+        self.logger = logging.getLogger(f"{__name__}.Trainer")
         
         # Initialize environment (will be set up with ROM path later)
         self.env: Optional[Env] = None
@@ -149,13 +153,13 @@ class Trainer:
         # Only reset if this is the very first rollout
         if self.global_step == 0:
             obs = self.env.reset()
-            print(f"First rollout - reset environment")
+            self.logger.debug("First rollout - reset environment")
         else:
             # Continue from where we left off - get current observation
             obs = self.env._get_observation()
-            print(f"Continuing rollout from global step {self.global_step}")
+            self.logger.debug(f"Continuing rollout from global step {self.global_step}")
         
-        print(f"Starting rollout: batch_horizon={self.config.algo.batch_horizon}, global_step={self.global_step}", flush=True)
+        self.logger.debug(f"Starting rollout: batch_horizon={self.config.algo.batch_horizon}, global_step={self.global_step}")
         
         for step_idx in range(self.config.algo.batch_horizon):
             # Get action from policy
@@ -166,7 +170,7 @@ class Trainer:
             
             # Debug episode progression
             if step_idx % 500 == 0 or done:
-                print(f"Step {step_idx} (global {self.global_step}): episode_step={info['episode_step']}, done={done}, max_steps={self.config.env.max_episode_steps}")
+                self.logger.debug(f"Step {step_idx} (global {self.global_step}): episode_step={info['episode_step']}, done={done}, max_steps={self.config.env.max_episode_steps}")
             
             # Compute intrinsic reward
             intrinsic_reward = self.rnd.intrinsic_reward(next_obs)
@@ -190,7 +194,7 @@ class Trainer:
                 was_novel = self.archive.add_if_novel(next_obs, savestate, self.global_step)
                 
                 if was_novel and self.global_step % 1000 == 0:
-                    print(f"Novel state discovered at step {self.global_step}")
+                    self.logger.debug(f"Novel state discovered at step {self.global_step}")
             
             # Update state
             obs = next_obs
@@ -208,29 +212,29 @@ class Trainer:
                 episode_reward = sum(t.reward for t in transitions[episode_start_idx:])
                 self.episode_rewards.append(episode_reward)
                 
-                print(f"Episode {self.episode_count} completed: {episode_length} steps, reward: {episode_reward:.3f}", flush=True)
-                print(f"Frontier probability: {self.config.archive.p_frontier}", flush=True)
+                print(f"Episode {self.episode_count} completed: {episode_length} steps, reward: {episode_reward:.3f}")
+                self.logger.debug(f"Frontier probability: {self.config.archive.p_frontier}")
                 
                 # Maybe reset from frontier
                 try:
                     rand_val = np.random.random()
-                    print(f"Frontier sampling: rand={rand_val:.3f}, p_frontier={self.config.archive.p_frontier}", flush=True)
+                    self.logger.debug(f"Frontier sampling: rand={rand_val:.3f}, p_frontier={self.config.archive.p_frontier}")
                     
                     if (self.archive is not None and rand_val < self.config.archive.p_frontier):
-                        print(f"Attempting frontier sampling...", flush=True)
+                        self.logger.debug("Attempting frontier sampling...")
                         frontier_cell = self.archive.sample_frontier()
                         if frontier_cell is not None:
-                            print(f"SUCCESS: Reset from frontier cell {frontier_cell.cell_id} (step {frontier_cell.first_seen_step})", flush=True)
+                            self.logger.info(f"Reset from frontier cell {frontier_cell.cell_id} (step {frontier_cell.first_seen_step})")
                             # Fix: Don't call load_state() AND reset(from_state=...) - that loads twice!
                             obs = self.env.reset(from_state=frontier_cell.savestate)
                         else:
-                            print(f"FAILED: No frontier cell available, doing regular reset", flush=True)
+                            self.logger.debug("No frontier cell available, doing regular reset")
                             obs = self.env.reset()
                     else:
-                        print(f"Regular reset (no frontier sampling)", flush=True)
+                        self.logger.debug("Regular reset (no frontier sampling)")
                         obs = self.env.reset()
                 except Exception as e:
-                    print(f"ERROR in frontier sampling: {e}", flush=True)
+                    self.logger.error(f"Error in frontier sampling: {e}")
                     import traceback
                     traceback.print_exc()
                     obs = self.env.reset()

@@ -1,7 +1,7 @@
 """Learned progress detector for identifying meaningful state transitions."""
 
 import numpy as np
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Optional
 from .mlp_numpy import MLP
 
 
