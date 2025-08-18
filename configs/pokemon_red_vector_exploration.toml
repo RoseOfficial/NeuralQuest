@@ -1,0 +1,50 @@
+# NeuralQuest Configuration for Pokemon Red - EXPLORATION FOCUSED
+# Fixes the "stuck in bedroom" problem with stronger exploration incentives
+# Designed to actually get the agent OUT of the starting bedroom
+
+[env]
+frame_skip = 4          # Standard frame skip for RPG pacing
+sticky_p = 0.1          # Higher sticky for more persistent actions
+seed = 1337             # Reproducible seed
+max_episode_steps = 5000 # MUCH longer episodes to allow real exploration
+deterministic = true    # Enable deterministic execution
+headless = true         # Default headless (overridden by visual_env_idx)
+use_progress_detector = false  # Disable progress detector for maximum performance
+
+[algo]
+gamma = 0.995           # Slightly lower discount to focus on shorter-term exploration
+gae_lambda = 0.95       # Standard GAE lambda
+lr_policy = 1e-4        # LOWER learning rate for more stable policy updates
+lr_value = 1e-4         # Matched value learning rate
+batch_horizon = 50000   # Much larger batch (5000 steps per env)
+entropy_coeff = 0.1     # MUCH HIGHER entropy to prevent premature convergence
+value_coeff = 0.5       # Standard value coefficient
+grad_clip = 5.0         # Lower gradient clip for stability
+epochs_per_update = 4   # Multiple epochs per update
+minibatch_size = 1024   # Larger minibatches for stable updates
+
+[rnd]
+beta = 1.0              # MUCH HIGHER intrinsic reward - exploration is priority!
+lr = 1e-3               # Higher RND learning rate for faster adaptation
+reward_clip = 5.0       # Lower clip to maintain curiosity signal strength
+norm_ema = 0.99         # Faster normalization to adapt to new states quickly
+hidden_dim = 256        # Larger RND networks for complex state space
+
+[archive]
+hash_bits = 64          # Full 64-bit hashing for large state space
+capacity = 1000000      # Much larger archive for 10 environments
+p_frontier = 0.9        # VERY HIGH frontier probability to escape bedroom
+novel_lru = 100000      # Larger LRU window for multi-env state persistence
+evict_on = "old_and_often"  # Eviction strategy
+hamming_threshold = 2   # LOWER threshold for more fine-grained novelty detection
+projection_dim = 128    # Larger projection for rich state representation
+
+[train]
+epochs = 50000          # Very long training for RPG mastery
+ckpt_every = 100        # More frequent checkpoints to catch good exploration
+log_every = 10          # More frequent logging to monitor progress
+eval_every = 1000       # More frequent evaluation
+save_dir = "pokemon_vector_checkpoints"  # Vector-specific checkpoint directory
+log_dir = "pokemon_vector_logs"          # Vector-specific log directory
+n_envs = 10             # 10 parallel PyBoy instances
+visual_env_idx = -1     # All headless for maximum performance

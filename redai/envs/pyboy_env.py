@@ -325,8 +325,30 @@ class Env:
         if self._pyboy is None:
             raise RuntimeError("PyBoy not initialized")
         
-        screen_buffer = self._pyboy.screen_buffer()
-        return np.array(screen_buffer)
+        # Get screen buffer using PyBoy's screen.ndarray method
+        try:
+            screen_array = self._pyboy.screen.ndarray
+            # Convert from (160, 144, 4) RGBA to (144, 160, 3) RGB
+            if screen_array.shape == (160, 144, 4):
+                # Transpose and remove alpha channel
+                screen_rgb = screen_array.transpose(1, 0, 2)[:, :, :3]
+            elif screen_array.shape == (144, 160, 4):
+                # Just remove alpha channel
+                screen_rgb = screen_array[:, :, :3]
+            elif screen_array.shape == (160, 144, 3):
+                # Transpose to correct orientation
+                screen_rgb = screen_array.transpose(1, 0, 2)
+            elif screen_array.shape == (144, 160, 3):
+                # Already in correct format
+                screen_rgb = screen_array
+            else:
+                print(f"Unexpected screen array shape: {screen_array.shape}")
+                screen_rgb = screen_array[:, :, :3] if screen_array.shape[2] >= 3 else screen_array
+            
+            return screen_rgb.astype(np.uint8)
+        except Exception as e:
+            print(f"Warning: Could not access PyBoy screen buffer: {e}")
+            return np.zeros((144, 160, 3), dtype=np.uint8)
     
     def save_state(self) -> bytes:
         """Save current emulator state."""

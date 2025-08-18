@@ -268,6 +268,20 @@ class ActorCritic:
             'return_mean': float(np.mean(returns)),
             'value_mean': float(np.mean(values))
         }
+    
+    def save_state(self) -> Dict[str, Any]:
+        """Save actor-critic state for checkpointing."""
+        return {
+            'encoder_state': self.encoder.save_state(),
+            'policy_head_state': self.policy_head.save_state(),
+            'value_head_state': self.value_head.save_state()
+        }
+    
+    def load_state(self, state: Dict[str, Any]) -> None:
+        """Load actor-critic state from checkpoint."""
+        self.encoder.load_state(state['encoder_state'])
+        self.policy_head.load_state(state['policy_head_state'])
+        self.value_head.load_state(state['value_head_state'])
 
 
 def compute_gae(

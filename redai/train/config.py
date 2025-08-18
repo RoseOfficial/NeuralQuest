@@ -14,6 +14,7 @@ class EnvConfig:
     max_episode_steps: int = 1500  # Shorter episodes to enable frontier sampling
     deterministic: bool = True
     headless: bool = True
+    use_progress_detector: bool = False  # Enable progress detector (impacts performance)
 
 
 @dataclass
@@ -63,6 +64,9 @@ class TrainConfig:
     eval_every: int = 500
     save_dir: str = "checkpoints"
     log_dir: str = "logs"
+    # Multi-instance training options
+    n_envs: int = 1  # Number of parallel environments
+    visual_env_idx: int = 0  # Which environment shows visuals
 
 
 @dataclass

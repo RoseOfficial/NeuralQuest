@@ -1,0 +1,50 @@
+# NeuralQuest Configuration for Pokemon Red - Multi-Instance Training
+# Optimized for 10 parallel PyBoy instances (9 headless + 1 visual)
+# Maintains domain-agnostic principles with high-performance vectorized training
+
+[env]
+frame_skip = 4          # Standard frame skip for RPG pacing
+sticky_p = 0.05         # Lower sticky probability for precise menu navigation
+seed = 1337             # Reproducible seed
+max_episode_steps = 1500   # Shorter episodes to enable frontier sampling
+deterministic = true    # Enable deterministic execution
+headless = true         # Default headless (overridden by visual_env_idx)
+use_progress_detector = false  # Disable progress detector for maximum performance
+
+[algo]
+gamma = 0.999           # Higher discount for long-term planning in RPGs
+gae_lambda = 0.97       # Higher GAE lambda for temporal credit assignment
+lr_policy = 2e-4        # Slightly lower learning rate for stability
+lr_value = 2e-4         # Matched value learning rate
+batch_horizon = 15000   # 10x larger for vectorized collection (1500 steps per env)
+entropy_coeff = 0.02    # Higher entropy for exploration variety
+value_coeff = 0.5       # Standard value coefficient
+grad_clip = 10.0        # Higher gradient clip for stability
+epochs_per_update = 4   # Multiple epochs per update
+minibatch_size = 512    # Larger minibatches for vectorized training
+
+[rnd]
+beta = 0.15             # Lower intrinsic reward scaling (RPGs have natural progression)
+lr = 8e-4               # Slightly lower RND learning rate
+reward_clip = 10.0      # Higher reward clip for diverse experiences
+norm_ema = 0.995        # Slower normalization for stable long-term training
+hidden_dim = 256        # Larger RND networks for complex state space
+
+[archive]
+hash_bits = 64          # Full 64-bit hashing for large state space
+capacity = 1000000      # Much larger archive for 10 environments (100K per env)
+p_frontier = 0.8        # Higher frontier probability to escape menu loops
+novel_lru = 100000      # Larger LRU window for multi-env state persistence
+evict_on = "old_and_often"  # Eviction strategy
+hamming_threshold = 3   # Higher threshold for meaningful state differences
+projection_dim = 128    # Larger projection for rich state representation
+
+[train]
+epochs = 50000          # Very long training for RPG mastery
+ckpt_every = 500        # More frequent checkpoints for long training
+log_every = 50          # Less frequent logging
+eval_every = 2500       # Periodic evaluation
+save_dir = "pokemon_vector_checkpoints"  # Vector-specific checkpoint directory
+log_dir = "pokemon_vector_logs"          # Vector-specific log directory
+n_envs = 10             # 10 parallel PyBoy instances
+visual_env_idx = 0      # Environment #0 shows visuals, others headless
