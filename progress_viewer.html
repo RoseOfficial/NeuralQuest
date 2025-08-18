@@ -164,6 +164,68 @@
             font-size: 11px;
             color: #666;
         }
+        
+        /* Metrics Panel Styles */
+        .metrics-panel {
+            background-color: #2d2d2d;
+            border: 2px solid #444;
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 1400px;
+            padding: 20px;
+        }
+        
+        .metrics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 15px;
+        }
+        
+        .metrics-header h3 {
+            color: #4CAF50;
+            margin: 0;
+            font-size: 20px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .metric-item {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #555;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .metric-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #4CAF50;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .metrics-timestamp {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -187,9 +249,63 @@
         </div>
     </div>
     
+    <!-- Training Metrics Panel -->
+    <div class="metrics-panel" id="metrics-panel" style="display: none;">
+        <div class="metrics-header">
+            <h3>🧠 Training Metrics</h3>
+            <div class="metrics-toggle">
+                <button class="control-button" onclick="toggleMetrics()" id="metrics-btn">📊 Show Metrics</button>
+            </div>
+        </div>
+        <div class="metrics-content" id="metrics-content">
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-label">Current Epoch</div>
+                    <div class="metric-value" id="current-epoch">--</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Global Steps</div>
+                    <div class="metric-value" id="global-steps">--</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Episodes</div>
+                    <div class="metric-value" id="episode-count">--</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Total FPS</div>
+                    <div class="metric-value" id="total-fps">--</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Avg Reward</div>
+                    <div class="metric-value" id="avg-reward">--</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Avg Episode Length</div>
+                    <div class="metric-value" id="avg-length">--</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Archive Size</div>
+                    <div class="metric-value" id="archive-size">--</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Discovery Rate</div>
+                    <div class="metric-value" id="discovery-rate">-- cells/hr</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Policy Entropy</div>
+                    <div class="metric-value" id="entropy">--</div>
+                </div>
+            </div>
+            <div class="metrics-timestamp">
+                Last updated: <span id="metrics-timestamp">--</span>
+            </div>
+        </div>
+    </div>
+    
     <div class="controls">
         <button class="control-button" onclick="refreshAll()">🔄 Refresh Now</button>
         <button class="control-button" onclick="toggleAutoRefresh()" id="auto-refresh-btn">⏸️ Pause Auto Refresh</button>
+        <button class="control-button" onclick="toggleMetrics()" id="metrics-btn">📊 Show Metrics</button>
         <button class="control-button" onclick="openFullscreen()">🖼️ Fullscreen Grid</button>
     </div>
     
@@ -254,6 +370,12 @@
                 img.src = `${originalSrc}?t=${timestamp}`;
             });
             
+            // Also refresh metrics if panel is visible
+            const metricsPanel = document.getElementById('metrics-panel');
+            if (metricsPanel.style.display !== 'none') {
+                loadMetrics();
+            }
+            
             document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
             resetCountdown();
         }
@@ -308,6 +430,80 @@
         function openFullscreen() {
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen();
+            }
+        }
+        
+        function toggleMetrics() {
+            const panel = document.getElementById('metrics-panel');
+            const button = document.getElementById('metrics-btn');
+            
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                button.textContent = '📊 Hide Metrics';
+                loadMetrics(); // Load metrics when showing
+            } else {
+                panel.style.display = 'none';
+                button.textContent = '📊 Show Metrics';
+            }
+        }
+        
+        async function loadMetrics() {
+            try {
+                // Try to load the CSV metrics file
+                const response = await fetch('pokemon_vector_logs/vector_metrics.csv');
+                if (!response.ok) {
+                    throw new Error('Metrics file not found');
+                }
+                
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
+                
+                if (lines.length < 2) {
+                    throw new Error('No metrics data available yet');
+                }
+                
+                // Get the last line (most recent data)
+                const headers = lines[0].split(',');
+                const lastData = lines[lines.length - 1].split(',');
+                
+                // Create a data object
+                const metrics = {};
+                headers.forEach((header, index) => {
+                    metrics[header.trim()] = lastData[index]?.trim() || '--';
+                });
+                
+                // Update the UI elements
+                document.getElementById('current-epoch').textContent = metrics['epoch'] || '--';
+                document.getElementById('global-steps').textContent = formatNumber(metrics['global_step']) || '--';
+                document.getElementById('episode-count').textContent = formatNumber(metrics['episode_count']) || '--';
+                document.getElementById('total-fps').textContent = parseFloat(metrics['total_fps']).toFixed(1) || '--';
+                document.getElementById('avg-reward').textContent = parseFloat(metrics['episode_reward_mean']).toFixed(3) || '--';
+                document.getElementById('avg-length').textContent = parseFloat(metrics['episode_length_mean']).toFixed(1) || '--';
+                document.getElementById('archive-size').textContent = formatNumber(metrics['archive_size']) || '--';
+                document.getElementById('discovery-rate').textContent = Math.round(parseFloat(metrics['cells_per_hour'])) + ' cells/hr' || '-- cells/hr';
+                document.getElementById('entropy').textContent = parseFloat(metrics['entropy']).toFixed(3) || '--';
+                
+                document.getElementById('metrics-timestamp').textContent = new Date().toLocaleTimeString();
+                
+            } catch (error) {
+                console.warn('Could not load metrics:', error.message);
+                // Set placeholder values
+                document.getElementById('current-epoch').textContent = 'Waiting...';
+                document.getElementById('global-steps').textContent = 'Training...';
+                document.getElementById('episode-count').textContent = 'Starting...';
+                document.getElementById('metrics-timestamp').textContent = 'No data yet';
+            }
+        }
+        
+        function formatNumber(num) {
+            if (!num || isNaN(num)) return '--';
+            const number = parseInt(num);
+            if (number >= 1000000) {
+                return (number / 1000000).toFixed(1) + 'M';
+            } else if (number >= 1000) {
+                return (number / 1000).toFixed(1) + 'K';
+            } else {
+                return number.toString();
             }
         }
         
