@@ -1,0 +1,1 @@
+"""Event tracking system for monitoring game progression."""

@@ -7,6 +7,19 @@ logs/
 test_checkpoints/
 test_logs/
 
+# Vectorized training outputs
+pokemon_vector_checkpoints/
+pokemon_vector_logs/
+vector_checkpoints/
+vector_logs/
+
+# Pokemon event tracking
+pokemon_events/
+*.jsonl
+
+# Progress monitoring
+progress_screenshots/
+
 # Game Boy ROMs and save files
 roms/
 *.gb
@@ -138,11 +151,17 @@ check_*.py
 *.hdf5
 *.model
 
-# Data files
+# Data files (keep config files)
 data/
 datasets/
+# CSV files (but allow config CSVs in configs/)
 *.csv
+!configs/*.csv
+# JSON files (but allow package.json and config JSONs)
 *.json
+!package.json
+!configs/*.json
+!*config*.json
 *.xml
 *.yaml
 *.yml
@@ -259,7 +278,7 @@ conversation_history/
 ai_sessions/
 prompt_history/
 
-# AI configuration files
+# AI configuration files  
 ai_config.json
 .aiconfig
 copilot_config.json

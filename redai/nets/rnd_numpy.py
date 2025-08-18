@@ -20,7 +20,9 @@ class RND:
         hidden_dim: int = 128,
         reward_clip: float = 5.0,
         norm_ema: float = 0.99,
-        seed: int = 0
+        seed: int = 0,
+        weight_decay: float = 1e-5,
+        min_reward_std: float = 1e-4
     ):
         """
         Initialize RND networks and normalization.
@@ -36,6 +38,8 @@ class RND:
         self.hidden_dim = hidden_dim
         self.reward_clip = reward_clip
         self.norm_ema = norm_ema
+        self.weight_decay = weight_decay
+        self.min_reward_std = min_reward_std
         
         # Target network (fixed, random weights)
         self.target_net = MLP(
@@ -55,6 +59,13 @@ class RND:
         self.reward_mean = 0.0
         self.reward_var = 1.0
         self.reward_count = 0
+        
+        # Fallback exploration bonus
+        self.fallback_bonus = 0.01
+        
+        # Reset tracking
+        self.last_reset_step = 0
+        self.reset_interval = 500000  # Reset predictor every 500K steps (much less aggressive)
         
         # Initialize with small batch to get reasonable initial statistics
         self._initialize_normalization()
@@ -108,11 +119,14 @@ class RND:
         """
         raw_reward = self._compute_raw_reward(obs)
         
-        # Normalize using running statistics
-        normalized_reward = (raw_reward - self.reward_mean) / np.sqrt(self.reward_var + 1e-8)
+        # Compute normalized reward with minimum std threshold
+        reward_std = np.sqrt(self.reward_var + 1e-8)
+        reward_std = max(reward_std, self.min_reward_std)  # Prevent collapse to zero
         
-        # Clip reward
-        clipped_reward = np.clip(normalized_reward, 0, self.reward_clip)
+        normalized_reward = (raw_reward - self.reward_mean) / reward_std
+        
+        # Clip reward and add fallback exploration bonus
+        clipped_reward = np.clip(normalized_reward, 0, self.reward_clip) + self.fallback_bonus
         
         # Update running statistics
         self._update_reward_stats(raw_reward)
@@ -130,13 +144,14 @@ class RND:
         diff = reward - self.reward_mean
         self.reward_var = self.norm_ema * self.reward_var + (1 - self.norm_ema) * (diff ** 2)
     
-    def update(self, obs_batch: np.ndarray, lr: float) -> Dict[str, float]:
+    def update(self, obs_batch: np.ndarray, lr: float, global_step: int = 0) -> Dict[str, float]:
         """
         Update predictor network to minimize prediction error.
         
         Args:
             obs_batch: Batch of observations
             lr: Learning rate
+            global_step: Global training step for reset tracking
             
         Returns:
             Dictionary with training statistics
@@ -146,17 +161,45 @@ class RND:
         
         batch_size = obs_batch.shape[0]
         
+        # Check if we need to reset predictor to prevent collapse
+        # Make reset interval much longer and add safety checks
+        if (global_step > 0 and 
+            (global_step - self.last_reset_step) >= self.reset_interval and
+            global_step > 200000):  # Only reset after substantial training
+            try:
+                print(f"RND: Attempting predictor reset at step {global_step}")
+                self.reset_predictor()
+                self.last_reset_step = global_step
+                print(f"RND: Predictor reset successful")
+            except Exception as e:
+                print(f"RND: Reset failed, continuing with current predictor: {e}")
+                self.last_reset_step = global_step  # Prevent retry immediately
+        
         # Forward pass through both networks
         target_output = self.target_net.forward(obs_batch, store_cache=False)
         predictor_output = self.predictor_net.forward(obs_batch, store_cache=True)
         
         # Compute loss (MSE between target and predictor)
         prediction_error = target_output - predictor_output
-        loss = np.mean(prediction_error ** 2)
+        mse_loss = np.mean(prediction_error ** 2)
+        
+        # Add L2 regularization to prevent overfitting
+        l2_loss = 0.0
+        for layer in self.predictor_net.layers:
+            if hasattr(layer, 'W'):
+                l2_loss += np.sum(layer.W ** 2)
+        
+        total_loss = mse_loss + self.weight_decay * l2_loss
         
         # Backward pass for predictor network
         grad_output = -2 * prediction_error / batch_size
         self.predictor_net.backward(grad_output)
+        
+        # Add L2 regularization gradients
+        if self.weight_decay > 0:
+            for layer in self.predictor_net.layers:
+                if hasattr(layer, 'dW'):
+                    layer.dW += 2 * self.weight_decay * layer.W
         
         # Gradient clipping
         grad_norm = self.predictor_net.clip_gradients(max_norm=5.0)
@@ -166,7 +209,8 @@ class RND:
         self.predictor_net.zero_grad()
         
         return {
-            'rnd_loss': float(loss),
+            'rnd_loss': float(mse_loss),
+            'rnd_total_loss': float(total_loss),
             'rnd_grad_norm': float(grad_norm),
             'reward_mean': float(self.reward_mean),
             'reward_std': float(np.sqrt(self.reward_var))
@@ -191,6 +235,26 @@ class RND:
             rewards.append(reward)
         
         return np.array(rewards)
+    
+    def reset_predictor(self) -> None:
+        """
+        Reset predictor network to prevent collapse.
+        
+        This reinitializes the predictor network weights to restore
+        prediction errors and curiosity signal.
+        """
+        # Reinitialize predictor network with different seed
+        new_seed = int(np.random.rand() * 10000)
+        self.predictor_net = MLP(
+            sizes=[self.input_dim, self.hidden_dim, self.hidden_dim],
+            activation="relu",
+            seed=new_seed
+        )
+        
+        # Reset normalization statistics partially to prevent shock
+        self.reward_var = max(self.reward_var, 1.0)  # Ensure minimum variance
+        
+        print(f"RND predictor network reset (seed={new_seed}) to restore curiosity")
     
     def normalize_reward(self, raw_reward: float) -> float:
         """

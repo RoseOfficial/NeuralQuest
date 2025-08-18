@@ -226,6 +226,91 @@
             color: #666;
             font-style: italic;
         }
+        
+        /* Pokemon Events Panel Styles */
+        .env-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .env-detail-item {
+            background-color: #1a1a1a;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #555;
+            font-size: 11px;
+        }
+        
+        .env-detail-header {
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .env-detail-content {
+            color: #e0e0e0;
+            line-height: 1.3;
+        }
+        
+        .events-feed {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #1a1a1a;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        
+        .event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+            font-size: 12px;
+        }
+        
+        .event-item:last-child {
+            border-bottom: none;
+        }
+        
+        .event-content {
+            flex: 1;
+        }
+        
+        .event-env {
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 8px;
+            min-width: 40px;
+        }
+        
+        .event-type {
+            color: #ff9800;
+            font-weight: bold;
+        }
+        
+        .event-data {
+            color: #e0e0e0;
+            margin-left: 5px;
+        }
+        
+        .event-time {
+            color: #888;
+            font-size: 10px;
+            min-width: 60px;
+            text-align: right;
+        }
+        
+        .event-placeholder {
+            text-align: center;
+            color: #888;
+            font-style: italic;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -302,10 +387,61 @@
         </div>
     </div>
     
+    <!-- Pokemon Events Panel -->
+    <div class="metrics-panel" id="events-panel" style="display: none;">
+        <div class="metrics-header">
+            <h3>🎮 Pokemon Events</h3>
+            <div class="metrics-toggle">
+                <button class="control-button" onclick="toggleEvents()" id="events-btn">🎯 Show Events</button>
+            </div>
+        </div>
+        <div class="metrics-content" id="events-content">
+            <div class="events-summary" id="events-summary">
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <div class="metric-label">Pokemon Caught</div>
+                        <div class="metric-value" id="total-pokemon-caught">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Badges Earned</div>
+                        <div class="metric-value" id="total-badges-earned">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Locations Visited</div>
+                        <div class="metric-value" id="total-locations-visited">--</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Names Given</div>
+                        <div class="metric-value" id="total-names-given">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="environment-details" id="environment-details">
+                <h4 style="color: #4CAF50; margin-top: 20px;">Environment Details</h4>
+                <div class="env-details-grid" id="env-details-grid">
+                    <!-- Environment-specific details will be populated here -->
+                </div>
+            </div>
+            
+            <div class="recent-events" id="recent-events">
+                <h4 style="color: #4CAF50; margin-top: 20px;">Recent Events (All Environments)</h4>
+                <div class="events-feed" id="events-feed">
+                    <div class="event-placeholder">No events yet - waiting for training to progress...</div>
+                </div>
+            </div>
+            
+            <div class="metrics-timestamp">
+                Last updated: <span id="events-timestamp">--</span>
+            </div>
+        </div>
+    </div>
+    
     <div class="controls">
         <button class="control-button" onclick="refreshAll()">🔄 Refresh Now</button>
         <button class="control-button" onclick="toggleAutoRefresh()" id="auto-refresh-btn">⏸️ Pause Auto Refresh</button>
         <button class="control-button" onclick="toggleMetrics()" id="metrics-btn">📊 Show Metrics</button>
+        <button class="control-button" onclick="toggleEvents()" id="events-btn">🎯 Show Events</button>
         <button class="control-button" onclick="openFullscreen()">🖼️ Fullscreen Grid</button>
     </div>
     
@@ -376,6 +512,12 @@
                 loadMetrics();
             }
             
+            // Also refresh events if panel is visible
+            const eventsPanel = document.getElementById('events-panel');
+            if (eventsPanel.style.display !== 'none') {
+                loadEvents();
+            }
+            
             document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
             resetCountdown();
         }
@@ -444,6 +586,153 @@
             } else {
                 panel.style.display = 'none';
                 button.textContent = '📊 Show Metrics';
+            }
+        }
+        
+        function toggleEvents() {
+            const panel = document.getElementById('events-panel');
+            const button = document.getElementById('events-btn');
+            
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                button.textContent = '🎯 Hide Events';
+                loadEvents(); // Load events when showing
+            } else {
+                panel.style.display = 'none';
+                button.textContent = '🎯 Show Events';
+            }
+        }
+        
+        async function loadEvents() {
+            try {
+                // Try to load event data from the dashboard endpoint
+                const response = await fetch('pokemon_events/dashboard.json');
+                let eventData;
+                
+                if (response.ok) {
+                    eventData = await response.json();
+                } else {
+                    // Generate mock data if no real data available
+                    eventData = generateMockEventData();
+                }
+                
+                updateEventsPanel(eventData);
+                
+            } catch (error) {
+                console.warn('Could not load events:', error.message);
+                // Show placeholder when no data available
+                updateEventsPanel(generateMockEventData());
+            }
+        }
+        
+        function generateMockEventData() {
+            return {
+                stats: {
+                    total_events: 0,
+                    events_by_type: {
+                        'pokemon_caught': 0,
+                        'badge_earned': 0,
+                        'location_changed': 0,
+                        'player_named': 0
+                    },
+                    environments: {}
+                },
+                recent_events: {},
+                timestamp: new Date().toISOString()
+            };
+        }
+        
+        function updateEventsPanel(eventData) {
+            // Update summary statistics
+            const stats = eventData.stats || {};
+            const eventsByType = stats.events_by_type || {};
+            
+            document.getElementById('total-pokemon-caught').textContent = eventsByType['pokemon_caught'] || 0;
+            document.getElementById('total-badges-earned').textContent = eventsByType['badge_earned'] || 0;
+            document.getElementById('total-locations-visited').textContent = eventsByType['location_changed'] || 0;
+            document.getElementById('total-names-given').textContent = (eventsByType['player_named'] || 0) + (eventsByType['rival_named'] || 0);
+            
+            // Update environment details
+            const envGrid = document.getElementById('env-details-grid');
+            envGrid.innerHTML = '';
+            
+            for (let envId = 0; envId < 10; envId++) {
+                const envStats = stats.environments && stats.environments[envId] ? stats.environments[envId] : { total_events: 0, events_by_type: {} };
+                
+                const envItem = document.createElement('div');
+                envItem.className = 'env-detail-item';
+                envItem.innerHTML = `
+                    <div class="env-detail-header">Env ${envId.toString().padStart(2, '0')}</div>
+                    <div class="env-detail-content">
+                        Caught: ${envStats.events_by_type['pokemon_caught'] || 0}<br>
+                        Badges: ${envStats.events_by_type['badge_earned'] || 0}<br>
+                        Moves: ${envStats.events_by_type['location_changed'] || 0}<br>
+                        Events: ${envStats.total_events || 0}
+                    </div>
+                `;
+                envGrid.appendChild(envItem);
+            }
+            
+            // Update recent events feed
+            const eventsFeed = document.getElementById('events-feed');
+            eventsFeed.innerHTML = '';
+            
+            const recentEvents = eventData.recent_events || {};
+            const allEvents = [];
+            
+            // Collect all recent events from all environments
+            for (const [envId, events] of Object.entries(recentEvents)) {
+                events.forEach(event => {
+                    allEvents.push({...event, env_id: parseInt(envId)});
+                });
+            }
+            
+            // Sort by timestamp (newest first)
+            allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (allEvents.length === 0) {
+                eventsFeed.innerHTML = '<div class="event-placeholder">No events yet - waiting for training to progress...</div>';
+            } else {
+                allEvents.slice(0, 20).forEach(event => {
+                    const eventItem = document.createElement('div');
+                    eventItem.className = 'event-item';
+                    
+                    const eventTypeText = event.event_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const eventDataText = formatEventData(event.event_type, event.data);
+                    const timeText = new Date(event.timestamp * 1000).toLocaleTimeString();
+                    
+                    eventItem.innerHTML = `
+                        <div class="event-content">
+                            <span class="event-env">E${event.env_id.toString().padStart(2, '0')}</span>
+                            <span class="event-type">${eventTypeText}</span>
+                            <span class="event-data">${eventDataText}</span>
+                        </div>
+                        <div class="event-time">${timeText}</div>
+                    `;
+                    
+                    eventsFeed.appendChild(eventItem);
+                });
+            }
+            
+            document.getElementById('events-timestamp').textContent = new Date().toLocaleTimeString();
+        }
+        
+        function formatEventData(eventType, data) {
+            switch(eventType) {
+                case 'pokemon_caught':
+                    return `Party now has ${data.party_count} Pokemon`;
+                case 'badge_earned':
+                    return `Earned ${data.badge_name} Badge (${data.total_badges} total)`;
+                case 'location_changed':
+                    return `Moved to map ${data.new_map}`;
+                case 'player_named':
+                    return `Named player "${data.name}"`;
+                case 'rival_named':
+                    return `Named rival "${data.name}"`;
+                case 'party_updated':
+                    return `Party: ${data.party.join(', ')}`;
+                default:
+                    return JSON.stringify(data);
             }
         }
         

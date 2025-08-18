@@ -11,6 +11,8 @@ import os
 from PIL import Image
 
 from .pyboy_env import Env
+from ..tracking.pokemon_tracker import PokemonTracker, PokemonEvent
+from ..tracking.event_logger import EventLogger
 
 
 @dataclass
@@ -45,7 +47,9 @@ class VectorEnv:
         use_progress_detector: bool = False,
         seed: Optional[int] = None,
         monitor_progress: bool = False,
-        screenshot_dir: Optional[str] = None
+        screenshot_dir: Optional[str] = None,
+        track_events: bool = False,
+        event_log_dir: Optional[str] = None
     ):
         """
         Initialize vectorized PyBoy environment.
@@ -63,6 +67,8 @@ class VectorEnv:
             seed: Random seed for reproducibility
             monitor_progress: Enable periodic screenshot capture for monitoring
             screenshot_dir: Directory to save screenshots (default: "progress_screenshots")
+            track_events: Enable Pokemon-specific event tracking
+            event_log_dir: Directory to save event logs (default: "pokemon_events")
         """
         self.rom_path = rom_path
         self.n_envs = n_envs
@@ -76,6 +82,8 @@ class VectorEnv:
         self.seed = seed
         self.monitor_progress = monitor_progress
         self.screenshot_dir = screenshot_dir or "progress_screenshots"
+        self.track_events = track_events
+        self.event_log_dir = event_log_dir or "pokemon_events"
         
         # Initialize environments
         self.envs: List[Env] = []
@@ -98,10 +106,17 @@ class VectorEnv:
         # Thread pool for parallel operations
         self._executor = ThreadPoolExecutor(max_workers=n_envs)
         
+        # Event tracking
+        self.pokemon_trackers: List[Optional[PokemonTracker]] = [None] * n_envs
+        self.event_logger: Optional[EventLogger] = None
+        self._setup_event_tracking()
+        
         print(f"VectorEnv initialized: {n_envs} environments")
         print(f"  - Visual environment: #{visual_env_idx}")
         print(f"  - Headless environments: {n_envs - 1}")
         print(f"  - Observation dimension: {self.obs_dim}")
+        if self.track_events:
+            print(f"  - Event tracking enabled: {self.event_log_dir}")
     
     def _setup_environments(self) -> None:
         """Setup all PyBoy environments with error handling for visual instances."""
@@ -182,6 +197,25 @@ class VectorEnv:
         print(f"  - Progress monitoring enabled: {self.screenshot_dir}")
         print(f"  - Screenshot interval: {self._screenshot_interval}s")
     
+    def _setup_event_tracking(self) -> None:
+        """Setup Pokemon event tracking system."""
+        if not self.track_events:
+            return
+            
+        # Create event log directory
+        os.makedirs(self.event_log_dir, exist_ok=True)
+        
+        # Initialize event logger
+        self.event_logger = EventLogger(self.event_log_dir, self.n_envs)
+        
+        # Initialize Pokemon trackers for each environment
+        for i in range(self.n_envs):
+            # Use higher sampling intervals for better performance
+            # Quick checks every 100 steps, deep checks every 1000 steps
+            self.pokemon_trackers[i] = PokemonTracker(env_id=i, track_interval=100)
+            
+        print(f"  - Pokemon event tracking initialized for {self.n_envs} environments")
+    
     def _capture_screenshots(self) -> None:
         """Capture screenshots from all environments."""
         if not self.monitor_progress:
@@ -192,24 +226,30 @@ class VectorEnv:
         
         def capture_env_screenshot(env_idx):
             try:
-                # Get screen buffer from environment
+                # Simple error handling without complex timeout
                 screen_rgb = self.envs[env_idx].render_rgb()
                 
-                # Convert to PIL Image and save
-                image = Image.fromarray(screen_rgb)
+                # Validate screen buffer before saving
+                if screen_rgb is None or screen_rgb.size == 0:
+                    return env_idx, False
+                    
+                # Convert to PIL Image with error handling
+                image = Image.fromarray(screen_rgb.astype('uint8'))
                 env_dir = os.path.join(self.screenshot_dir, f"env_{env_idx:02d}")
-                filename = f"screenshot_{timestamp}.png"
-                filepath = os.path.join(env_dir, filename)
-                image.save(filepath)
                 
-                # Also save as "latest.png" for easy viewing
+                # Ensure directory exists
+                os.makedirs(env_dir, exist_ok=True)
+                
                 latest_path = os.path.join(env_dir, "latest.png")
-                image.save(latest_path)
+                
+                # Save with compression to reduce I/O time
+                image.save(latest_path, optimize=True, compress_level=6)
                 
                 return env_idx, True
                 
             except Exception as e:
-                print(f"Warning: Failed to capture screenshot from env {env_idx}: {e}")
+                # More detailed error reporting
+                print(f"Warning: Screenshot failed for env {env_idx}: {type(e).__name__}: {e}")
                 return env_idx, False
         
         # Capture screenshots in parallel
@@ -224,12 +264,56 @@ class VectorEnv:
         if success_count > 0:
             print(f"Captured {success_count}/{self.n_envs} screenshots at timestamp {timestamp}")
     
-    def reset(self, *, env_indices: Optional[List[int]] = None) -> np.ndarray:
+    def _update_event_tracking(self) -> None:
+        """Update Pokemon event tracking for all environments."""
+        if not self.track_events or not self.event_logger:
+            return
+            
+        all_events = []
+        
+        # Update trackers for all environments in parallel
+        def update_tracker(env_idx):
+            try:
+                if self.pokemon_trackers[env_idx] is not None:
+                    pyboy_instance = self.envs[env_idx]._pyboy
+                    events = self.pokemon_trackers[env_idx].update(pyboy_instance)
+                    return env_idx, events, None
+            except Exception as e:
+                return env_idx, [], e
+            return env_idx, [], None
+        
+        futures = [self._executor.submit(update_tracker, i) for i in range(self.n_envs)]
+        
+        for future in futures:
+            env_idx, events, error = future.result()
+            if error is None:
+                all_events.extend(events)
+            elif error is not None:
+                # Silently skip failed tracking updates to avoid spam
+                pass
+        
+        # Log events if any were found
+        if all_events:
+            self.event_logger.log_events(all_events)
+            
+        # Periodically log state snapshots (every 10000 steps)
+        if self._step_count % 10000 == 0:
+            for env_idx in range(self.n_envs):
+                if self.pokemon_trackers[env_idx] is not None:
+                    try:
+                        current_state = self.pokemon_trackers[env_idx].get_current_state()
+                        self.event_logger.log_state_snapshot(env_idx, current_state)
+                    except Exception:
+                        pass  # Silently skip failed state snapshots
+    
+    def reset(self, *, env_indices: Optional[List[int]] = None, from_states: Optional[List[Optional[bytes]]] = None) -> np.ndarray:
         """
         Reset environments and return initial observations.
         
         Args:
             env_indices: Indices of environments to reset (None = all)
+            from_states: Optional savestates to load for each environment in env_indices
+                        (None = normal reset, bytes = load from savestate)
             
         Returns:
             Stacked observations from all environments (n_envs, obs_dim)
@@ -237,11 +321,23 @@ class VectorEnv:
         if env_indices is None:
             env_indices = list(range(self.n_envs))
         
-        # Reset environments in parallel
-        def reset_env(idx):
-            return idx, self.envs[idx].reset()
+        # Validate from_states parameter
+        if from_states is not None and len(from_states) != len(env_indices):
+            raise ValueError(f"from_states length ({len(from_states)}) must match env_indices length ({len(env_indices)})")
         
-        futures = [self._executor.submit(reset_env, idx) for idx in env_indices]
+        # Reset environments in parallel
+        def reset_env(idx, from_state=None):
+            if from_state is not None:
+                return idx, self.envs[idx].reset(from_state=from_state)
+            else:
+                return idx, self.envs[idx].reset()
+        
+        # Create futures with appropriate from_state parameters
+        futures = []
+        for i, env_idx in enumerate(env_indices):
+            from_state = from_states[i] if from_states is not None else None
+            futures.append(self._executor.submit(reset_env, env_idx, from_state))
+        
         
         # Collect results
         observations = np.zeros((self.n_envs, self.obs_dim), dtype=np.float32)
@@ -318,6 +414,10 @@ class VectorEnv:
             self._capture_screenshots()
             self._last_screenshot_time = current_time
         
+        # Event tracking
+        if self.track_events:
+            self._update_event_tracking()
+        
         return observations, rewards, dones, infos
     
     def get_savestates(self, env_indices: Optional[List[int]] = None) -> List[bytes]:
@@ -389,6 +489,14 @@ class VectorEnv:
                 print(f"  Environment {i}: closed")
             except Exception as e:
                 print(f"  Environment {i}: error closing - {e}")
+        
+        # Close event logger
+        if self.event_logger:
+            try:
+                self.event_logger.close()
+                print("  Event logger: closed")
+            except Exception as e:
+                print(f"  Event logger: error closing - {e}")
         
         # Shutdown thread pool
         self._executor.shutdown(wait=True)

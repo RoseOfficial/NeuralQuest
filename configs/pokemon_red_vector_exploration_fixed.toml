@@ -1,6 +1,6 @@
-# NeuralQuest Configuration for Pokemon Red - EXPLORATION FOCUSED
-# Fixes the "stuck in bedroom" problem with stronger exploration incentives
-# Designed to actually get the agent OUT of the starting bedroom
+# NeuralQuest Configuration for Pokemon Red - EXPLORATION FOCUSED (RND FIXED)
+# Fixes the RND collapse problem with improved curiosity system
+# Designed to maintain exploration throughout long training runs
 
 [env]
 frame_skip = 4          # Standard frame skip for RPG pacing
@@ -25,9 +25,9 @@ minibatch_size = 1024   # Larger minibatches for stable updates
 
 [rnd]
 beta = 1.0              # MUCH HIGHER intrinsic reward - exploration is priority!
-lr = 1e-3               # Higher RND learning rate for faster adaptation
-reward_clip = 5.0       # Lower clip to maintain curiosity signal strength
-norm_ema = 0.99         # Faster normalization to adapt to new states quickly
+lr = 1e-4               # LOWER RND learning rate to prevent overfitting
+reward_clip = 10.0      # HIGHER clip to allow stronger curiosity signals
+norm_ema = 0.999        # SLOWER normalization to prevent variance collapse
 hidden_dim = 256        # Larger RND networks for complex state space
 
 [archive]
@@ -41,7 +41,7 @@ projection_dim = 128    # Larger projection for rich state representation
 
 [train]
 epochs = 50000          # Very long training for RPG mastery
-ckpt_every = 100        # More frequent checkpoints to catch good exploration
+ckpt_every = 1          # Save every epoch for maximum data preservation
 log_every = 10          # More frequent logging to monitor progress
 eval_every = 1000       # More frequent evaluation
 save_dir = "pokemon_vector_checkpoints"  # Vector-specific checkpoint directory

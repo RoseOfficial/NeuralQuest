@@ -37,7 +37,7 @@ class VectorTrainer:
     headless environments for optimal performance.
     """
     
-    def __init__(self, config: Config, n_envs: int = 10, visual_env_idx: int = 0, monitor_progress: bool = False):
+    def __init__(self, config: Config, n_envs: int = 10, visual_env_idx: int = 0, monitor_progress: bool = False, track_events: bool = False, event_log_dir: str = "pokemon_events"):
         """
         Initialize vectorized trainer.
         
@@ -46,11 +46,15 @@ class VectorTrainer:
             n_envs: Number of parallel environments
             visual_env_idx: Index of environment to show visuals
             monitor_progress: Enable progress monitoring with screenshots
+            track_events: Enable Pokemon event tracking
+            event_log_dir: Directory to save event logs
         """
         self.config = config
         self.n_envs = n_envs
         self.visual_env_idx = visual_env_idx
         self.monitor_progress = monitor_progress
+        self.track_events = track_events
+        self.event_log_dir = event_log_dir
         config.ensure_dirs()
         
         # Setup logger
@@ -100,7 +104,9 @@ class VectorTrainer:
             deterministic=self.config.env.deterministic,
             use_progress_detector=getattr(self.config.env, 'use_progress_detector', False),
             seed=self.config.env.seed,
-            monitor_progress=self.monitor_progress
+            monitor_progress=self.monitor_progress,
+            track_events=self.track_events,
+            event_log_dir=self.event_log_dir
         )
         
         # Get observation dimension
@@ -259,34 +265,31 @@ class VectorTrainer:
             
             # Reset completed environments
             if reset_indices:
-                valid_indices = []  # Initialize to empty list
-                
                 # Use frontier sampling if archive has sufficient states
                 if (self.archive is not None and 
                     len(self.archive.cells) > 100 and 
                     np.random.random() < self.config.archive.p_frontier):
                     
-                    # Sample frontier states for reset environments
+                    # Sample frontier states for all reset environments
                     frontier_states = []
                     for env_idx in reset_indices:
                         frontier_cell = self.archive.sample_frontier()
                         if frontier_cell:
                             frontier_states.append(frontier_cell.savestate)
+                            print(f"Using frontier state for env {env_idx}")
                         else:
                             frontier_states.append(None)
+                            print(f"No frontier state available for env {env_idx}, using normal reset")
                     
-                    # Load frontier states where available
-                    valid_states = [s for s in frontier_states if s is not None]
-                    valid_indices = [reset_indices[i] for i, s in enumerate(frontier_states) if s is not None]
+                    # Reset all environments with their respective states (frontier or None)
+                    self.env.reset(env_indices=reset_indices, from_states=frontier_states)
                     
-                    if valid_states:
-                        self.env.load_savestates(valid_states, valid_indices)
-                        self.logger.debug(f"Loaded {len(valid_states)} frontier states")
-                
-                # Reset any environments that didn't get frontier states
-                remaining_indices = [idx for idx in reset_indices if idx not in valid_indices]
-                if remaining_indices:
-                    self.env.reset(env_indices=remaining_indices)
+                    frontier_count = sum(1 for s in frontier_states if s is not None)
+                    self.logger.debug(f"Reset {len(reset_indices)} environments: {frontier_count} from frontier, {len(reset_indices) - frontier_count} from game start")
+                else:
+                    # Regular reset without frontier sampling
+                    self.env.reset(env_indices=reset_indices)
+                    self.logger.debug(f"Reset {len(reset_indices)} environments from game start")
             
             # Update observations for next step
             observations = next_observations
@@ -345,8 +348,8 @@ class VectorTrainer:
         policy_grad_norm = ac_metrics['policy_grad_norm']
         value_grad_norm = ac_metrics['value_grad_norm']
         
-        # Update RND
-        rnd_metrics = self.rnd.update(batch.obs, self.config.rnd.lr)
+        # Update RND with global step for reset tracking
+        rnd_metrics = self.rnd.update(batch.obs, self.config.rnd.lr, self.global_step)
         rnd_loss = rnd_metrics['rnd_loss']
         
         # Calculate metrics
