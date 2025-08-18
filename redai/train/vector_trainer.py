@@ -59,6 +59,7 @@ class VectorTrainer:
         
         # Setup logger
         self.logger = logging.getLogger(f"{__name__}.VectorTrainer")
+        self.logger.setLevel(logging.INFO)  # Set to INFO to reduce verbosity
         
         # Initialize vectorized environment
         self.env: Optional[VectorEnv] = None
@@ -193,9 +194,14 @@ class VectorTrainer:
             observations = self.env.reset()
             self.logger.debug("First rollout - reset all environments")
         else:
-            # Get current observations from all environments
-            observations = np.stack([env._get_observation() for env in self.env.envs])
-            self.logger.debug(f"Continuing rollout from global step {self.global_step}")
+            # Get current observations from VectorEnv's stored state
+            if self.env.last_observations is not None:
+                observations = self.env.last_observations.copy()
+                self.logger.debug(f"Continuing rollout from stored observations at global step {self.global_step}")
+            else:
+                # Fallback: reset if we don't have stored observations
+                observations = self.env.reset()
+                self.logger.debug("No stored observations - reset all environments")
         
         self.logger.debug(f"Starting vectorized rollout: steps_per_env={steps_per_env}, total_steps={total_steps}")
         
@@ -260,15 +266,28 @@ class VectorTrainer:
                     reset_indices.append(env_idx)
                     self.episode_count += 1
                     
-                    if len(reset_indices) <= 2:  # Avoid spam
+                    # Always log episode completions to track resets
+                    print(f"[EPISODE] Completed in env {env_idx}: reward={episode_reward:.3f}, length={episode_length}, total_episodes={self.episode_count}")
+                    if len(reset_indices) <= 2:  # Avoid debug spam
                         self.logger.debug(f"Episode completed in env {env_idx}: reward={episode_reward:.3f}, length={episode_length}")
             
             # Reset completed environments
             if reset_indices:
+                archive_size = len(self.archive.cells) if self.archive else 0
+                p_frontier = self.config.archive.p_frontier if self.archive else 0.0
+                random_roll = np.random.random()
+                
+                print(f"[RESET] DECISION: {len(reset_indices)} episodes ended")
+                print(f"   Archive size: {archive_size} (need >100)")
+                print(f"   Frontier probability: {p_frontier}")
+                print(f"   Random roll: {random_roll:.3f}")
+                
                 # Use frontier sampling if archive has sufficient states
                 if (self.archive is not None and 
                     len(self.archive.cells) > 100 and 
-                    np.random.random() < self.config.archive.p_frontier):
+                    random_roll < self.config.archive.p_frontier):
+                    
+                    print(f"[FRONTIER] SAMPLING ACTIVATED (roll {random_roll:.3f} < {p_frontier})")
                     
                     # Sample frontier states for all reset environments
                     frontier_states = []
@@ -276,17 +295,28 @@ class VectorTrainer:
                         frontier_cell = self.archive.sample_frontier()
                         if frontier_cell:
                             frontier_states.append(frontier_cell.savestate)
-                            print(f"Using frontier state for env {env_idx}")
+                            print(f"   Using frontier state for env {env_idx} (visit count: {frontier_cell.visit_count})")
                         else:
                             frontier_states.append(None)
-                            print(f"No frontier state available for env {env_idx}, using normal reset")
+                            print(f"   No frontier state available for env {env_idx}, using normal reset")
                     
                     # Reset all environments with their respective states (frontier or None)
                     self.env.reset(env_indices=reset_indices, from_states=frontier_states)
                     
                     frontier_count = sum(1 for s in frontier_states if s is not None)
+                    print(f"[SUMMARY] {frontier_count}/{len(reset_indices)} from frontier, {len(reset_indices) - frontier_count} from game start")
                     self.logger.debug(f"Reset {len(reset_indices)} environments: {frontier_count} from frontier, {len(reset_indices) - frontier_count} from game start")
                 else:
+                    if self.archive is None:
+                        reason = "no archive"
+                    elif len(self.archive.cells) <= 100:
+                        reason = f"archive too small ({archive_size} <= 100)"
+                    else:
+                        reason = f"random roll failed ({random_roll:.3f} >= {p_frontier})"
+                    
+                    print(f"[FRONTIER] SAMPLING SKIPPED: {reason}")
+                    print(f"[RESET] Using normal reset from game_start.state for all {len(reset_indices)} environments")
+                    
                     # Regular reset without frontier sampling
                     self.env.reset(env_indices=reset_indices)
                     self.logger.debug(f"Reset {len(reset_indices)} environments from game start")
@@ -419,6 +449,14 @@ class VectorTrainer:
             ]])
         
         self.metrics_history.append(metrics)
+        
+        # Generate dashboard JSON periodically (every 10 epochs or if logging)
+        if self.track_events and (epoch % 10 == 0 or epoch % self.config.train.log_every == 0):
+            try:
+                from ..tracking.dashboard_generator import generate_dashboard_data
+                generate_dashboard_data(self.event_log_dir, self.n_envs)
+            except Exception as e:
+                self.logger.debug(f"Failed to generate dashboard data: {e}")
         
         # Console logging
         if epoch % self.config.train.log_every == 0:

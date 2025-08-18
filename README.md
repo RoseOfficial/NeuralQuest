@@ -106,6 +106,7 @@ python train_vector.py --config configs/pokemon_red_vector_exploration_fixed.tom
 - **Event Tracking**: Monitor Pokemon naming, catching, badges, and exploration
 - **Progress Monitoring**: Auto-capture screenshots from all environments
 - **Stability**: Fixed RND collapse with robust intrinsic reward system
+- **Enhanced Debugging**: Frontier sampling decision logging and archive verification
 
 ### Configuration
 

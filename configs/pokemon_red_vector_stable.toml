@@ -1,0 +1,49 @@
+# NeuralQuest Configuration for Pokemon Red - STABLE VECTORIZED TRAINING
+# Conservative settings to prevent crashes while maintaining exploration
+
+[env]
+frame_skip = 4          # Standard frame skip for RPG pacing
+sticky_p = 0.1          # Higher sticky for more persistent actions
+seed = 1337             # Reproducible seed
+max_episode_steps = 2000 # Shorter episodes to reduce memory pressure
+deterministic = true    # Enable deterministic execution
+headless = true         # Default headless (overridden by visual_env_idx)
+use_progress_detector = false  # Disable progress detector for maximum performance
+
+[algo]
+gamma = 0.995           # Slightly lower discount to focus on shorter-term exploration
+gae_lambda = 0.95       # Standard GAE lambda
+lr_policy = 1e-4        # LOWER learning rate for more stable policy updates
+lr_value = 1e-4         # Matched value learning rate
+batch_horizon = 10000   # Conservative batch size (1000 steps per env)
+entropy_coeff = 0.05    # Moderate entropy to prevent premature convergence
+value_coeff = 0.5       # Standard value coefficient
+grad_clip = 2.0         # Conservative gradient clip for stability
+epochs_per_update = 2   # Fewer epochs per update to reduce memory
+minibatch_size = 512    # Smaller minibatches for memory efficiency
+
+[rnd]
+beta = 0.3              # Moderate intrinsic reward
+lr = 1e-4               # LOWER RND learning rate to prevent overfitting
+reward_clip = 5.0       # Conservative clip
+norm_ema = 0.999        # SLOWER normalization to prevent variance collapse
+hidden_dim = 256        # Standard RND network size
+
+[archive]
+hash_bits = 64          # Full 64-bit hashing
+capacity = 500000       # Smaller archive to reduce memory pressure
+p_frontier = 0.6        # High frontier probability 
+novel_lru = 50000       # Smaller LRU window
+evict_on = "old_and_often"  # Eviction strategy
+hamming_threshold = 2   # Fine-grained novelty detection
+projection_dim = 64     # Smaller projection for memory efficiency
+
+[train]
+epochs = 10000          # Reasonable training length
+ckpt_every = 1          # Save every epoch
+log_every = 10          # Frequent logging
+eval_every = 100        # Frequent evaluation
+save_dir = "pokemon_vector_checkpoints"
+log_dir = "pokemon_vector_logs"
+n_envs = 10             # 10 parallel PyBoy instances
+visual_env_idx = -1     # All headless for maximum performance

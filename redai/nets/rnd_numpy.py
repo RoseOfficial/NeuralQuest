@@ -185,9 +185,8 @@ class RND:
         
         # Add L2 regularization to prevent overfitting
         l2_loss = 0.0
-        for layer in self.predictor_net.layers:
-            if hasattr(layer, 'W'):
-                l2_loss += np.sum(layer.W ** 2)
+        for weight in self.predictor_net.weights:
+            l2_loss += np.sum(weight ** 2)
         
         total_loss = mse_loss + self.weight_decay * l2_loss
         
@@ -197,9 +196,9 @@ class RND:
         
         # Add L2 regularization gradients
         if self.weight_decay > 0:
-            for layer in self.predictor_net.layers:
-                if hasattr(layer, 'dW'):
-                    layer.dW += 2 * self.weight_decay * layer.W
+            for i, weight in enumerate(self.predictor_net.weights):
+                if hasattr(self.predictor_net, 'dweights') and i < len(self.predictor_net.dweights):
+                    self.predictor_net.dweights[i] += 2 * self.weight_decay * weight
         
         # Gradient clipping
         grad_norm = self.predictor_net.clip_gradients(max_norm=5.0)

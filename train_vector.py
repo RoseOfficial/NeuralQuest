@@ -195,9 +195,9 @@ def main():
 
 
 if __name__ == "__main__":
-    # Windows multiprocessing compatibility
-    if sys.platform.startswith('win'):
-        import multiprocessing
-        multiprocessing.set_start_method('spawn', force=True)
+    # Windows multiprocessing compatibility (disabled - causes hang with PyBoy)
+    # if sys.platform.startswith('win'):
+    #     import multiprocessing
+    #     multiprocessing.set_start_method('spawn', force=True)
     
     main()

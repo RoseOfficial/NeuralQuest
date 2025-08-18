@@ -106,6 +106,9 @@ class VectorEnv:
         # Thread pool for parallel operations
         self._executor = ThreadPoolExecutor(max_workers=n_envs)
         
+        # Observation tracking
+        self.last_observations: Optional[np.ndarray] = None
+        
         # Event tracking
         self.pokemon_trackers: List[Optional[PokemonTracker]] = [None] * n_envs
         self.event_logger: Optional[EventLogger] = None
@@ -332,24 +335,26 @@ class VectorEnv:
             else:
                 return idx, self.envs[idx].reset()
         
-        # Create futures with appropriate from_state parameters
-        futures = []
+        # Execute sequentially instead of in parallel (threading fix)
+        results = []
         for i, env_idx in enumerate(env_indices):
             from_state = from_states[i] if from_states is not None else None
-            futures.append(self._executor.submit(reset_env, env_idx, from_state))
-        
+            results.append(reset_env(env_idx, from_state))
         
         # Collect results
         observations = np.zeros((self.n_envs, self.obs_dim), dtype=np.float32)
         
-        for future in futures:
-            idx, obs = future.result()
+        for result in results:
+            idx, obs = result
             observations[idx] = obs
         
         # For environments not reset, get current observation
         for i in range(self.n_envs):
             if i not in env_indices:
                 observations[i] = self.envs[i]._get_observation()
+        
+        # Store observations for future access
+        self.last_observations = observations.copy()
         
         return observations
     
@@ -366,7 +371,7 @@ class VectorEnv:
         if len(actions) != self.n_envs:
             raise ValueError(f"Expected {self.n_envs} actions, got {len(actions)}")
         
-        # Step environments in parallel with error handling
+        # Step environments sequentially (temporary fix to avoid threading issues)
         def step_env(idx):
             try:
                 return idx, self.envs[idx].step(int(actions[idx])), None
@@ -376,7 +381,8 @@ class VectorEnv:
                 dummy_obs = np.zeros(self.obs_dim, dtype=np.float32)
                 return idx, (dummy_obs, 0.0, True, {"error": str(e), "fps": 0}), e
         
-        futures = [self._executor.submit(step_env, i) for i in range(self.n_envs)]
+        # Execute sequentially instead of in parallel (threading fix)
+        results = [step_env(i) for i in range(self.n_envs)]
         
         # Collect results
         observations = np.zeros((self.n_envs, self.obs_dim), dtype=np.float32)
@@ -384,8 +390,8 @@ class VectorEnv:
         dones = np.zeros(self.n_envs, dtype=bool)
         infos = [{}] * self.n_envs
         
-        for future in futures:
-            idx, (obs, reward, done, info), error = future.result()
+        for result in results:
+            idx, (obs, reward, done, info), error = result
             observations[idx] = obs
             rewards[idx] = reward
             dones[idx] = done
@@ -417,6 +423,9 @@ class VectorEnv:
         # Event tracking
         if self.track_events:
             self._update_event_tracking()
+        
+        # Store observations for future access
+        self.last_observations = observations.copy()
         
         return observations, rewards, dones, infos
     
