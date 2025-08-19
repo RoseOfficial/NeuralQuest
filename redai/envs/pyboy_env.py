@@ -4,7 +4,9 @@ import numpy as np
 from typing import Tuple, Dict, Optional, Any
 import random
 import time
-from ..nets.progress_detector import ProgressDetector
+# from ..nets.progress_detector import ProgressDetector  # Removed - not needed for speedrunning
+from .pokemon_reward_system import PokemonRewardSystem
+from .game_navigation_helper import NavigationHelper
 
 
 class Env:
@@ -24,10 +26,11 @@ class Env:
         frame_skip: int = 4,
         sticky_p: float = 0.1,
         frame_stack: int = 4,
-        max_episode_steps: int = 10000,
+        max_episode_steps: int = 50000,  # Increased for full game completion
         deterministic: bool = True,
-        headless: bool = True,
+        headless: bool = False,  # Enable visuals for speedrunning
         use_progress_detector: bool = False,  # Make progress detector optional for performance
+        use_speedrun_rewards: bool = True,  # Enable Pokemon speedrun rewards
         seed: Optional[int] = None
     ):
         """
@@ -42,12 +45,14 @@ class Env:
             deterministic: Enable deterministic execution
             headless: Run without display
             use_progress_detector: Enable progress detection neural network (impacts performance)
+            use_speedrun_rewards: Enable Pokemon Red speedrunning reward system
             seed: Random seed for reproducibility
         """
         self.rom_path = rom_path
         self.frame_skip = frame_skip
         self.sticky_p = sticky_p
         self.frame_stack = frame_stack
+        self.use_speedrun_rewards = use_speedrun_rewards
         self.max_episode_steps = max_episode_steps
         self.deterministic = deterministic
         self.headless = headless
@@ -66,8 +71,11 @@ class Env:
         self._start_time = time.time()
         self._last_fps_report = time.time()
         
-        # Initialize progress detector for learned progress
+        # Progress detector removed - using Pokemon-specific rewards instead
         self._progress_detector = None
+        
+        # Initialize Pokemon reward system placeholder
+        self._pokemon_rewards = None
         
         if seed is not None:
             self.seed(seed)
@@ -104,15 +112,15 @@ class Env:
         # Get initial RAM state
         self._update_ram_history()
         
-        # Initialize progress detector after we know observation dimension (if enabled)
-        if self.use_progress_detector and self._progress_detector is None:
-            obs_dim = len(self._get_observation())
-            self._progress_detector = ProgressDetector(
-                input_dim=obs_dim,
-                hidden_dim=256,
-                learning_rate=3e-4,
-                seed=42
-            )
+        # Progress detector disabled - using Pokemon-specific reward system instead
+        
+        # Initialize Pokemon speedrun reward system (if enabled)
+        if self.use_speedrun_rewards:
+            self._pokemon_rewards = PokemonRewardSystem()
+            
+        # Initialize navigation helper for menu sequences
+        self._navigation_helper = NavigationHelper()
+        self._action_history = []
     
     def _get_ram_vector(self) -> np.ndarray:
         """Get current RAM state as normalized vector (optimized for performance)."""
@@ -249,6 +257,15 @@ class Env:
         self._prev_obs = None
         self._current_button_state = None  # Reset button state
         
+        # Reset Pokemon reward system if enabled
+        if self.use_speedrun_rewards and hasattr(self, '_pokemon_rewards'):
+            self._pokemon_rewards.reset()
+            
+        # Reset navigation helper
+        if hasattr(self, '_navigation_helper'):
+            self._navigation_helper.reset()
+        self._action_history = []
+        
         # Initialize observation history
         for _ in range(self.frame_stack):
             self._update_ram_history()
@@ -268,6 +285,28 @@ class Env:
         if not (0 <= action < len(self.ACTIONS)):
             raise ValueError(f"Invalid action {action}. Must be 0-{len(self.ACTIONS)-1}")
         
+        # Navigation assistance for menu sequences
+        original_action = action
+        ram_vector = self._get_ram_vector()
+        current_state = self._navigation_helper.detect_game_state(
+            ram_vector, self._step_count, self._action_history[-20:] if len(self._action_history) >= 20 else self._action_history
+        )
+        
+        # Check if we should override action for menu navigation
+        if self._navigation_helper.should_override_action(current_state, action):
+            suggested_action = self._navigation_helper.suggest_action(
+                current_state, self._step_count, self._action_history[-20:] if len(self._action_history) >= 20 else self._action_history
+            )
+            if suggested_action is not None:
+                action = suggested_action
+                if self._step_count % 10 == 0:  # Print occasionally to avoid spam
+                    print(f"NAV: {self.ACTIONS[original_action]} -> {self.ACTIONS[action]} ({current_state.value})")
+        
+        # Track action history
+        self._action_history.append(action)
+        if len(self._action_history) > 100:  # Keep last 100 actions
+            self._action_history.pop(0)
+        
         # Apply sticky actions
         if random.random() < self.sticky_p and self._step_count > 0:
             action = self._last_action
@@ -281,18 +320,34 @@ class Env:
         self._update_ram_history()
         obs = self._get_observation()
         
-        # Compute progress-aware reward (only if enabled)
+        # Compute reward based on enabled systems
         reward = 0.0
-        if self.use_progress_detector and self._prev_obs is not None and self._progress_detector is not None:
-            # Base intrinsic reward (will be enhanced by progress detector)
-            base_intrinsic = 0.1  # Small base exploration bonus
+        reward_breakdown = {}
+        
+        if self.use_speedrun_rewards and hasattr(self, '_pokemon_rewards'):
+            # Use Pokemon speedrunning reward system
+            ram_vector = self._get_ram_vector()
+            speedrun_reward, reward_breakdown = self._pokemon_rewards.compute_reward(
+                ram_vector, self._step_count
+            )
+            reward += speedrun_reward
             
-            # Get progress-enhanced reward
-            reward = self._progress_detector.compute_progress_reward(
+            # Check for game completion
+            if self._pokemon_rewards.is_game_completed():
+                done = True
+                completion_time = self._pokemon_rewards.get_completion_time()
+                print(f"🎉 POKEMON RED COMPLETED! Time: {completion_time} steps")
+        
+        if self.use_progress_detector and self._prev_obs is not None and self._progress_detector is not None:
+            # Add progress detection bonus (if both systems enabled)
+            base_intrinsic = 0.1  # Small base exploration bonus
+            progress_reward = self._progress_detector.compute_progress_reward(
                 self._prev_obs, obs, base_intrinsic
             )
-        elif not self.use_progress_detector:
-            # Simple base reward when progress detector is disabled for performance
+            reward += progress_reward
+            reward_breakdown['progress_detector'] = progress_reward
+        elif not self.use_speedrun_rewards:
+            # Fallback to simple exploration reward if no reward systems enabled
             reward = 0.01  # Small constant exploration bonus
         
         # Episode termination
@@ -310,10 +365,15 @@ class Env:
             "episode_step": self._step_count,
             "episode_count": self._episode_count,
             "action_name": self.ACTIONS[action],
-            "progress_reward": reward,
+            "total_reward": reward,
+            "reward_breakdown": reward_breakdown,
             "frame_count": self._frame_count,
             "fps": self._frame_count / (current_time - self._start_time) if current_time > self._start_time else 0
         }
+        
+        # Add Pokemon progress info if speedrun rewards enabled
+        if self.use_speedrun_rewards and hasattr(self, '_pokemon_rewards'):
+            info.update(self._pokemon_rewards.get_progress_summary())
         
         # Store current observation for next step
         self._prev_obs = obs.copy()
@@ -391,9 +451,9 @@ class Env:
             return single_ram_size * self.frame_stack
         return len(self._get_observation())
     
-    def get_progress_detector(self) -> Optional[ProgressDetector]:
-        """Get progress detector for training updates."""
-        return self._progress_detector
+    def get_progress_detector(self):
+        """Progress detector removed - using Pokemon-specific rewards."""
+        return None
     
     def close(self) -> None:
         """Clean up resources."""

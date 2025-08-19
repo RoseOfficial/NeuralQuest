@@ -1,6 +1,6 @@
 """Training infrastructure and configuration management."""
 
-from .trainer import Trainer
+from .ppo_trainer import PPOTrainer, PPOConfig
 from .config import Config
 
-__all__ = ["Trainer", "Config"]
+__all__ = ["PPOTrainer", "PPOConfig", "Config"]

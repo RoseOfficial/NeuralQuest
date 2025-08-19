@@ -1,0 +1,71 @@
+# NeuralQuest PPO Configuration for Pokemon Red Speedrunning
+# Optimized for single PyBoy instance with visual feedback and game completion
+
+[env]
+frame_skip = 4                    # Balanced for precise control and speed
+sticky_p = 0.05                   # Lower sticky for more responsive control
+seed = 1337                       # Reproducible seed
+max_episode_steps = 10000000      # Allow 30+ hours of gameplay for complete mastery
+deterministic = true              # Enable deterministic execution
+headless = false                  # Enable visuals for monitoring progress
+use_progress_detector = false     # Disable for performance - we have better reward system
+use_speedrun_rewards = true       # Enable Pokemon-specific speedrun rewards
+
+[ppo]
+# PPO-specific parameters
+clip_ratio = 0.2                  # Standard PPO clipping
+ppo_epochs = 4                    # Multiple epochs per batch
+minibatch_size = 256              # Smaller minibatches for stability
+target_kl = 0.01                  # KL divergence threshold
+
+# Policy and value learning
+lr_policy = 3e-4                  # Policy learning rate
+lr_value = 3e-4                   # Value learning rate  
+gamma = 0.999                     # High discount for long episodes
+gae_lambda = 0.95                 # GAE parameter for advantage estimation
+
+# Loss coefficients
+entropy_coeff = 0.01              # Entropy bonus for exploration
+value_coeff = 0.5                 # Value loss coefficient
+grad_clip = 0.5                   # Gradient clipping
+
+# Training parameters
+batch_horizon = 10000             # Learn frequently while allowing long episodes
+hidden_dim = 512                  # Larger networks for complex game
+
+[rnd]
+# Random Network Distillation for intrinsic motivation
+use_rnd = true                    # Enable RND
+beta = 0.1                        # Lower intrinsic reward weight (extrinsic rewards dominate)
+lr = 1e-3                         # RND learning rate
+hidden_dim = 256                  # RND network size
+reward_clip = 5.0                 # Clip intrinsic rewards
+
+[checkpoints]
+# Checkpoint-based curriculum learning
+use_checkpoints = true            # Enable checkpoint system
+curriculum_stage = "adaptive"     # Adaptive difficulty based on success
+checkpoint_dir = "pokemon_speedrun_checkpoints"
+
+[archive] 
+# Archive system (disabled for speedrunning focus)
+use_archive = false               # Disable archive for speedrunning
+
+[train]
+# Training loop parameters
+epochs = 10000                    # Long training for mastery
+checkpoint_every = 50             # Save model every 50 epochs
+log_every = 10                    # Log every 10 epochs
+eval_episodes = 3                 # Fewer eval episodes to save time
+
+# Output directories
+save_dir = "pokemon_speedrun_checkpoints"
+log_dir = "pokemon_speedrun_logs"
+
+[monitoring]
+# Progress monitoring
+enable_screenshots = true         # Capture progress screenshots
+screenshot_dir = "speedrun_progress"
+screenshot_interval = 30          # Every 30 seconds
+enable_video_recording = false    # Disable video for performance
+max_video_length = 600            # 10 minutes if enabled

@@ -1,1 +1,0 @@
-"""Command-line interface for training and evaluation."""

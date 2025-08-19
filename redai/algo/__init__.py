@@ -1,5 +1,5 @@
 """Reinforcement learning algorithms."""
 
-from .a2c_numpy import ActorCritic
+from .ppo_numpy import PPOActorCritic
 
-__all__ = ["ActorCritic"]
+__all__ = ["PPOActorCritic"]
