@@ -43,7 +43,7 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="configs/pokemon_red_vector.toml",
+        default="configs/pokemon_red_vector_optimal.toml",
         help="Configuration file path"
     )
     
