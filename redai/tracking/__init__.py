@@ -1,1 +1,1 @@
-"""Event tracking system for monitoring game progression."""
+"""Tracking module (currently empty)."""

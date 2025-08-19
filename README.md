@@ -65,7 +65,7 @@ python -m redai.cli.run_train path/to/your/game.gb --smoke-test
 
 ```bash
 # Vectorized training (recommended) - 10 parallel PyBoy instances
-python train_vector.py --config configs/pokemon_red_vector_exploration_fixed.toml --n-envs 10 --track-events
+python train_vector.py --config configs/pokemon_red_vector_exploration_fixed.toml --n-envs 10
 
 # Legacy single-environment training
 python scripts/train_pokemon.py --mode standard
@@ -88,9 +88,9 @@ python scripts/eval_pokemon.py --mode standard --analyze-archive --frontier-anal
 NeuralQuest now supports **vectorized training** with multiple parallel PyBoy instances for 10x faster learning:
 
 ```bash
-# Full vectorized training with event tracking
+# Full vectorized training with progress monitoring
 python train_vector.py --config configs/pokemon_red_vector_exploration_fixed.toml \
-  --n-envs 10 --visual-env -1 --track-events --monitor-progress
+  --n-envs 10 --visual-env -1 --monitor-progress
 
 # Quick vectorized test
 python train_vector.py --config configs/pokemon_red_vector_exploration_fixed.toml \
@@ -103,7 +103,6 @@ python train_vector.py --config configs/pokemon_red_vector_exploration_fixed.tom
 
 **Vectorized Features:**
 - **10x Performance**: 600+ total FPS across parallel environments
-- **Event Tracking**: Monitor Pokemon naming, catching, badges, and exploration
 - **Progress Monitoring**: Auto-capture screenshots from all environments
 - **Stability**: Fixed RND collapse with robust intrinsic reward system
 - **Enhanced Debugging**: Frontier sampling decision logging and archive verification
@@ -143,32 +142,11 @@ python -m redai.cli.run_train game.gb --override rnd.beta=0.3 --override algo.lr
 
 ### Training Metrics
 
-Monitor training progress via CSV logs and real-time dashboards:
+Monitor training progress via CSV logs:
 - **Exploration**: Unique cells discovered per hour, archive growth
 - **Performance**: Episode length distribution, policy entropy  
 - **Learning**: Policy/value losses, gradient norms, intrinsic rewards
 - **Vectorized**: Per-environment statistics, total throughput (600+ FPS)
-
-### Pokemon Event Tracking (New!)
-
-Track Pokemon-specific events across all training environments:
-
-```bash
-# View real-time progress with event tracking
-python -m http.server 8000
-# Open http://localhost:8000/progress_viewer.html
-```
-
-**Event Tracking Features:**
-- **Player Actions**: Character naming, rival naming, menu interactions
-- **World Exploration**: Location changes, map transitions, unique areas visited
-- **Game Progress**: Pokemon caught, badges earned, items obtained
-- **Statistics**: Per-environment event counts, exploration patterns
-- **Logs**: JSONL event logs, CSV aggregate statistics
-
-Event data saved to:
-- `pokemon_events/env_XX_events.jsonl` - Detailed event logs per environment
-- `pokemon_events/aggregate_stats.csv` - Summary statistics across all environments
 
 ### Progress Monitoring
 
@@ -179,16 +157,21 @@ Event data saved to:
 
 **Web Dashboard:**
 - Real-time training metrics visualization
-- Pokemon event feed with filtering
 - Progress screenshots from all environments
 - Archive growth and exploration statistics
+
+```bash
+# View real-time progress with web dashboard
+python -m http.server 8000
+# Open http://localhost:8000/progress_viewer.html
+```
 
 ### Success Criteria
 
 The agent demonstrates domain-agnostic learning through:
 1. **Increasing exploration rate**: More unique states discovered over time
 2. **Improving survival**: Longer episodes before game over
-3. **Event diversity**: Pokemon naming, location discovery, progress indicators
+3. **Exploration diversity**: Discovery of different game areas and states
 4. **Persistent improvement**: Performance maintained after checkpoint resume
 5. **Ablation validation**: Removing RND/archive collapses exploration
 
@@ -225,7 +208,7 @@ NeuralQuest/
 │   ├── envs/                   # PyBoy environment + vectorization
 │   ├── explore/                # Archive & hashing
 │   ├── nets/                   # NumPy networks + RND fixes
-│   ├── tracking/               # Pokemon event tracking (NEW)
+│   ├── tracking/               # Empty tracking module
 │   ├── tests/                  # Test suite
 │   └── train/                  # Training infrastructure + vectorized trainer
 ├── configs/                    # TOML configurations
@@ -233,7 +216,6 @@ NeuralQuest/
 ├── roms/                       # Game ROMs (gitignored)
 ├── train_vector.py             # Vectorized training entry point (NEW)
 ├── progress_viewer.html        # Real-time monitoring dashboard (NEW)
-├── pokemon_events/             # Event tracking data (NEW, gitignored)
 ├── pokemon_vector_logs/        # Vectorized training logs (NEW, gitignored)
 ├── progress_screenshots/       # Training progress images (NEW, gitignored)
 ├── requirements.txt            # Dependencies
@@ -315,7 +297,6 @@ git commit -m "Add Pokemon Red training configuration"
 - **Per-Environment**: ~60 FPS per PyBoy instance
 - **Exploration**: >1000 unique cells/hour with parallel discovery
 - **Memory**: Archive capacity up to 10M states with intelligent scaling
-- **Event Tracking**: <1% performance overhead for Pokemon event monitoring
 - **Stability**: No crashes during extended training (500+ epochs)
 
 ## ⚖️ Legal & Ethics
@@ -334,7 +315,7 @@ redai/
 ├── nets/          # NumPy neural networks (MLP, RND) + stability fixes
 ├── algo/          # A2C algorithm implementation
 ├── explore/       # Archive system and hashing
-├── tracking/      # Pokemon event tracking system (NEW)
+├── tracking/      # Empty tracking module
 ├── train/         # Training loop + vectorized trainer
 ├── cli/           # Command-line interface  
 └── tests/         # Comprehensive test suite
@@ -351,7 +332,7 @@ redai/
 ## 🔮 Roadmap
 
 - **v1.0**: RAM-only observations, A2C+RND, archive exploration ✅
-- **v1.1**: Vectorized training, event tracking, RND stability fixes ✅ (current)
+- **v1.1**: Vectorized training, RND stability fixes ✅ (current)
 - **v1.2**: Optional PyTorch backend for acceleration
 - **v2.0**: Pixel observations with convolutional networks
 - **v3.0**: Hierarchical exploration with option-critic

@@ -11,8 +11,6 @@ import os
 from PIL import Image
 
 from .pyboy_env import Env
-from ..tracking.pokemon_tracker import PokemonTracker, PokemonEvent
-from ..tracking.event_logger import EventLogger
 
 
 @dataclass
@@ -47,9 +45,7 @@ class VectorEnv:
         use_progress_detector: bool = False,
         seed: Optional[int] = None,
         monitor_progress: bool = False,
-        screenshot_dir: Optional[str] = None,
-        track_events: bool = False,
-        event_log_dir: Optional[str] = None
+        screenshot_dir: Optional[str] = None
     ):
         """
         Initialize vectorized PyBoy environment.
@@ -67,8 +63,6 @@ class VectorEnv:
             seed: Random seed for reproducibility
             monitor_progress: Enable periodic screenshot capture for monitoring
             screenshot_dir: Directory to save screenshots (default: "progress_screenshots")
-            track_events: Enable Pokemon-specific event tracking
-            event_log_dir: Directory to save event logs (default: "pokemon_events")
         """
         self.rom_path = rom_path
         self.n_envs = n_envs
@@ -82,8 +76,6 @@ class VectorEnv:
         self.seed = seed
         self.monitor_progress = monitor_progress
         self.screenshot_dir = screenshot_dir or "progress_screenshots"
-        self.track_events = track_events
-        self.event_log_dir = event_log_dir or "pokemon_events"
         
         # Initialize environments
         self.envs: List[Env] = []
@@ -109,17 +101,12 @@ class VectorEnv:
         # Observation tracking
         self.last_observations: Optional[np.ndarray] = None
         
-        # Event tracking
-        self.pokemon_trackers: List[Optional[PokemonTracker]] = [None] * n_envs
-        self.event_logger: Optional[EventLogger] = None
-        self._setup_event_tracking()
-        
         print(f"VectorEnv initialized: {n_envs} environments")
         print(f"  - Visual environment: #{visual_env_idx}")
         print(f"  - Headless environments: {n_envs - 1}")
         print(f"  - Observation dimension: {self.obs_dim}")
-        if self.track_events:
-            print(f"  - Event tracking enabled: {self.event_log_dir}")
+        if self.monitor_progress:
+            print(f"  - Progress monitoring enabled: {self.screenshot_dir}")
     
     def _setup_environments(self) -> None:
         """Setup all PyBoy environments with error handling for visual instances."""
@@ -197,27 +184,7 @@ class VectorEnv:
             env_dir = os.path.join(self.screenshot_dir, f"env_{i:02d}")
             os.makedirs(env_dir, exist_ok=True)
         
-        print(f"  - Progress monitoring enabled: {self.screenshot_dir}")
         print(f"  - Screenshot interval: {self._screenshot_interval}s")
-    
-    def _setup_event_tracking(self) -> None:
-        """Setup Pokemon event tracking system."""
-        if not self.track_events:
-            return
-            
-        # Create event log directory
-        os.makedirs(self.event_log_dir, exist_ok=True)
-        
-        # Initialize event logger
-        self.event_logger = EventLogger(self.event_log_dir, self.n_envs)
-        
-        # Initialize Pokemon trackers for each environment
-        for i in range(self.n_envs):
-            # Use higher sampling intervals for better performance
-            # Quick checks every 100 steps, deep checks every 1000 steps
-            self.pokemon_trackers[i] = PokemonTracker(env_id=i, track_interval=100)
-            
-        print(f"  - Pokemon event tracking initialized for {self.n_envs} environments")
     
     def _capture_screenshots(self) -> None:
         """Capture screenshots from all environments."""
@@ -266,49 +233,7 @@ class VectorEnv:
         
         if success_count > 0:
             print(f"Captured {success_count}/{self.n_envs} screenshots at timestamp {timestamp}")
-    
-    def _update_event_tracking(self) -> None:
-        """Update Pokemon event tracking for all environments."""
-        if not self.track_events or not self.event_logger:
-            return
-            
-        all_events = []
-        
-        # Update trackers for all environments in parallel
-        def update_tracker(env_idx):
-            try:
-                if self.pokemon_trackers[env_idx] is not None:
-                    pyboy_instance = self.envs[env_idx]._pyboy
-                    events = self.pokemon_trackers[env_idx].update(pyboy_instance)
-                    return env_idx, events, None
-            except Exception as e:
-                return env_idx, [], e
-            return env_idx, [], None
-        
-        futures = [self._executor.submit(update_tracker, i) for i in range(self.n_envs)]
-        
-        for future in futures:
-            env_idx, events, error = future.result()
-            if error is None:
-                all_events.extend(events)
-            elif error is not None:
-                # Silently skip failed tracking updates to avoid spam
-                pass
-        
-        # Log events if any were found
-        if all_events:
-            self.event_logger.log_events(all_events)
-            
-        # Periodically log state snapshots (every 10000 steps)
-        if self._step_count % 10000 == 0:
-            for env_idx in range(self.n_envs):
-                if self.pokemon_trackers[env_idx] is not None:
-                    try:
-                        current_state = self.pokemon_trackers[env_idx].get_current_state()
-                        self.event_logger.log_state_snapshot(env_idx, current_state)
-                    except Exception:
-                        pass  # Silently skip failed state snapshots
-    
+
     def reset(self, *, env_indices: Optional[List[int]] = None, from_states: Optional[List[Optional[bytes]]] = None) -> np.ndarray:
         """
         Reset environments and return initial observations.
@@ -420,10 +345,6 @@ class VectorEnv:
             self._capture_screenshots()
             self._last_screenshot_time = current_time
         
-        # Event tracking
-        if self.track_events:
-            self._update_event_tracking()
-        
         # Store observations for future access
         self.last_observations = observations.copy()
         
@@ -499,13 +420,6 @@ class VectorEnv:
             except Exception as e:
                 print(f"  Environment {i}: error closing - {e}")
         
-        # Close event logger
-        if self.event_logger:
-            try:
-                self.event_logger.close()
-                print("  Event logger: closed")
-            except Exception as e:
-                print(f"  Event logger: error closing - {e}")
         
         # Shutdown thread pool
         self._executor.shutdown(wait=True)

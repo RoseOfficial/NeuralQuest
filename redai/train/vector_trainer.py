@@ -37,7 +37,7 @@ class VectorTrainer:
     headless environments for optimal performance.
     """
     
-    def __init__(self, config: Config, n_envs: int = 10, visual_env_idx: int = 0, monitor_progress: bool = False, track_events: bool = False, event_log_dir: str = "pokemon_events"):
+    def __init__(self, config: Config, n_envs: int = 10, visual_env_idx: int = 0, monitor_progress: bool = False):
         """
         Initialize vectorized trainer.
         
@@ -46,15 +46,11 @@ class VectorTrainer:
             n_envs: Number of parallel environments
             visual_env_idx: Index of environment to show visuals
             monitor_progress: Enable progress monitoring with screenshots
-            track_events: Enable Pokemon event tracking
-            event_log_dir: Directory to save event logs
         """
         self.config = config
         self.n_envs = n_envs
         self.visual_env_idx = visual_env_idx
         self.monitor_progress = monitor_progress
-        self.track_events = track_events
-        self.event_log_dir = event_log_dir
         config.ensure_dirs()
         
         # Setup logger
@@ -105,9 +101,7 @@ class VectorTrainer:
             deterministic=self.config.env.deterministic,
             use_progress_detector=getattr(self.config.env, 'use_progress_detector', False),
             seed=self.config.env.seed,
-            monitor_progress=self.monitor_progress,
-            track_events=self.track_events,
-            event_log_dir=self.event_log_dir
+            monitor_progress=self.monitor_progress
         )
         
         # Get observation dimension
@@ -449,14 +443,6 @@ class VectorTrainer:
             ]])
         
         self.metrics_history.append(metrics)
-        
-        # Generate dashboard JSON periodically (every 10 epochs or if logging)
-        if self.track_events and (epoch % 10 == 0 or epoch % self.config.train.log_every == 0):
-            try:
-                from ..tracking.dashboard_generator import generate_dashboard_data
-                generate_dashboard_data(self.event_log_dir, self.n_envs)
-            except Exception as e:
-                self.logger.debug(f"Failed to generate dashboard data: {e}")
         
         # Console logging
         if epoch % self.config.train.log_every == 0:

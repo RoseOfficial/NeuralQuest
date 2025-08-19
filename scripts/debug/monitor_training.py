@@ -100,6 +100,7 @@ def monitor_training(vector_mode=False, auto_open_viewer=False):
                         print(f"New checkpoint: {latest_checkpoint.name}")
                         last_checkpoint = latest_checkpoint
             
+            
             # Monitor progress screenshots (vector mode only)
             if progress_screenshots and progress_screenshots.exists():
                 screenshot_count = len(list(progress_screenshots.glob("*/latest.png")))

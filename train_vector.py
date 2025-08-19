@@ -69,12 +69,6 @@ def main():
     )
     
     parser.add_argument(
-        "--monitor-progress",
-        action="store_true",
-        help="Enable progress monitoring with periodic screenshots"
-    )
-    
-    parser.add_argument(
         "--epochs",
         type=int,
         default=None,
@@ -90,22 +84,15 @@ def main():
     )
     
     parser.add_argument(
+        "--monitor-progress",
+        action="store_true",
+        help="Enable progress monitoring with periodic screenshots"
+    )
+    
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug logging"
-    )
-    
-    parser.add_argument(
-        "--track-events",
-        action="store_true",
-        help="Enable Pokemon event tracking (naming, catching, badges)"
-    )
-    
-    parser.add_argument(
-        "--event-log-dir",
-        type=str,
-        default="pokemon_events",
-        help="Directory to save Pokemon event logs"
     )
     
     args = parser.parse_args()
@@ -169,9 +156,7 @@ def main():
         config=config,
         n_envs=args.n_envs,
         visual_env_idx=args.visual_env,
-        monitor_progress=args.monitor_progress,
-        track_events=args.track_events,
-        event_log_dir=args.event_log_dir
+        monitor_progress=args.monitor_progress
     )
     
     try:

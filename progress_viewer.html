@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuralQuest Progress Monitor</title>
+    <title>NeuralQuest Training Progress Viewer</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -11,827 +11,388 @@
             padding: 20px;
             background-color: #1a1a1a;
             color: #e0e0e0;
+            line-height: 1.6;
         }
         
         .header {
+            background: linear-gradient(135deg, #4a90e2 0%, #7b68ee 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             text-align: center;
-            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
         }
         
         .header h1 {
-            color: #4CAF50;
-            margin-bottom: 10px;
+            margin: 0;
+            font-size: 2.5em;
         }
         
-        .status {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
         }
         
-        .status-item {
-            background-color: #2d2d2d;
-            padding: 10px 15px;
-            border-radius: 5px;
-            border: 1px solid #444;
-        }
-        
-        .status-label {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 5px;
-        }
-        
-        .status-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        
-        .grid {
+        .container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 1fr 1fr;
             gap: 20px;
             max-width: 1400px;
             margin: 0 auto;
         }
         
-        .env-container {
-            background-color: #2d2d2d;
-            border: 2px solid #444;
+        .panel {
+            background: #2d2d2d;
             border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-            transition: border-color 0.3s ease;
-        }
-        
-        .env-container:hover {
-            border-color: #4CAF50;
-        }
-        
-        .env-header {
-            color: #4CAF50;
-            font-weight: bold;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        
-        .screenshot-container {
-            position: relative;
-            background-color: #000;
-            border: 1px solid #555;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        
-        .screenshot {
-            width: 100%;
-            height: auto;
-            display: block;
-            image-rendering: pixelated;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: crisp-edges;
-        }
-        
-        .error-message {
-            color: #ff6b6b;
             padding: 20px;
-            font-style: italic;
-            background-color: #331;
-            border-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid #404040;
         }
         
-        .env-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
-        }
-        
-        .refresh-timer {
-            text-align: center;
-            margin-top: 20px;
-            color: #888;
-            font-size: 14px;
-        }
-        
-        .controls {
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        .control-button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            margin: 0 5px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .control-button:hover {
-            background-color: #45a049;
-        }
-        
-        .control-button:disabled {
-            background-color: #666;
-            cursor: not-allowed;
-        }
-        
-        .auto-refresh-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background-color: #4CAF50;
-            border-radius: 50%;
-            margin-left: 5px;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.3; }
-            100% { opacity: 1; }
-        }
-        
-        .timestamp {
-            font-size: 11px;
-            color: #666;
-        }
-        
-        /* Metrics Panel Styles */
-        .metrics-panel {
-            background-color: #2d2d2d;
-            border: 2px solid #444;
-            border-radius: 8px;
-            margin: 20px auto;
-            max-width: 1400px;
-            padding: 20px;
-        }
-        
-        .metrics-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 15px;
-        }
-        
-        .metrics-header h3 {
-            color: #4CAF50;
-            margin: 0;
-            font-size: 20px;
+        .panel h2 {
+            margin-top: 0;
+            color: #ffffff;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 10px;
         }
         
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         
-        .metric-item {
-            background-color: #1a1a1a;
+        .metric-card {
+            background: #3a3a3a;
             padding: 15px;
             border-radius: 6px;
-            border: 1px solid #555;
             text-align: center;
-        }
-        
-        .metric-label {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 8px;
-            font-weight: bold;
-            text-transform: uppercase;
+            border-left: 4px solid #4a90e2;
+            border: 1px solid #505050;
         }
         
         .metric-value {
-            font-size: 20px;
+            font-size: 2em;
             font-weight: bold;
-            color: #4CAF50;
-            font-family: 'Courier New', monospace;
+            color: #4a90e2;
+            margin: 0;
         }
         
-        .metrics-timestamp {
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            font-style: italic;
+        .metric-label {
+            color: #b0b0b0;
+            font-size: 0.9em;
+            margin: 5px 0 0 0;
         }
         
-        /* Pokemon Events Panel Styles */
-        .env-details-grid {
+        .screenshots-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-            margin-bottom: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
         }
         
-        .env-detail-item {
-            background-color: #1a1a1a;
-            padding: 10px;
+        .screenshot-card {
+            background: #3a3a3a;
             border-radius: 6px;
-            border: 1px solid #555;
-            font-size: 11px;
-        }
-        
-        .env-detail-header {
-            font-weight: bold;
-            color: #4CAF50;
-            margin-bottom: 5px;
+            padding: 10px;
             text-align: center;
+            border: 1px solid #505050;
         }
         
-        .env-detail-content {
+        .screenshot-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+            background: #555;
+            min-height: 144px;
+            object-fit: contain;
+        }
+        
+        .screenshot-card .env-label {
+            font-weight: bold;
+            margin-top: 8px;
             color: #e0e0e0;
-            line-height: 1.3;
         }
         
-        .events-feed {
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .status.running {
+            background-color: #1e4d2b;
+            color: #4ade80;
+            border: 1px solid #22c55e;
+        }
+        
+        .status.stopped {
+            background-color: #4c1d1d;
+            color: #f87171;
+            border: 1px solid #dc2626;
+        }
+        
+        .logs {
+            background: #1e1e1e;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
             max-height: 300px;
             overflow-y: auto;
-            background-color: #1a1a1a;
-            border: 1px solid #555;
+            margin-top: 20px;
+            border: 1px solid #404040;
+        }
+        
+        .refresh-btn {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
             border-radius: 6px;
-            padding: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 20px;
+            transition: background 0.3s ease;
         }
         
-        .event-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid #333;
-            font-size: 12px;
+        .refresh-btn:hover {
+            background: #3a7bc8;
         }
         
-        .event-item:last-child {
-            border-bottom: none;
+        .full-width {
+            grid-column: 1 / -1;
         }
         
-        .event-content {
-            flex: 1;
-        }
-        
-        .event-env {
-            color: #4CAF50;
-            font-weight: bold;
-            margin-right: 8px;
-            min-width: 40px;
-        }
-        
-        .event-type {
-            color: #ff9800;
-            font-weight: bold;
-        }
-        
-        .event-data {
-            color: #e0e0e0;
-            margin-left: 5px;
-        }
-        
-        .event-time {
-            color: #888;
-            font-size: 10px;
-            min-width: 60px;
-            text-align: right;
-        }
-        
-        .event-placeholder {
-            text-align: center;
-            color: #888;
+        .error {
+            color: #f87171;
             font-style: italic;
-            padding: 20px;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🎮 NeuralQuest Progress Monitor</h1>
-        <p>Real-time view of all PyBoy environments</p>
+        <h1>🎮 NeuralQuest Training Progress</h1>
+        <p>Real-time monitoring of vectorized RL training</p>
     </div>
     
-    <div class="status">
-        <div class="status-item">
-            <div class="status-label">Environments</div>
-            <div class="status-value" id="env-count">10</div>
-        </div>
-        <div class="status-item">
-            <div class="status-label">Last Update</div>
-            <div class="status-value" id="last-update">--</div>
-        </div>
-        <div class="status-item">
-            <div class="status-label">Auto Refresh</div>
-            <div class="status-value" id="refresh-status">ON <span class="auto-refresh-indicator"></span></div>
-        </div>
-    </div>
-    
-    <!-- Training Metrics Panel -->
-    <div class="metrics-panel" id="metrics-panel" style="display: none;">
-        <div class="metrics-header">
-            <h3>🧠 Training Metrics</h3>
-            <div class="metrics-toggle">
-                <button class="control-button" onclick="toggleMetrics()" id="metrics-btn">📊 Show Metrics</button>
+    <div class="container">
+        <div class="panel">
+            <h2>📊 Training Metrics</h2>
+            <button class="refresh-btn" onclick="refreshMetrics()">🔄 Refresh Data</button>
+            
+            <div id="status" class="status">
+                Checking training status...
             </div>
-        </div>
-        <div class="metrics-content" id="metrics-content">
-            <div class="metrics-grid">
-                <div class="metric-item">
+            
+            <div class="metrics-grid" id="metricsGrid">
+                <div class="metric-card">
+                    <div class="metric-value" id="epoch">-</div>
                     <div class="metric-label">Current Epoch</div>
-                    <div class="metric-value" id="current-epoch">--</div>
                 </div>
-                <div class="metric-item">
-                    <div class="metric-label">Global Steps</div>
-                    <div class="metric-value" id="global-steps">--</div>
+                <div class="metric-card">
+                    <div class="metric-value" id="steps">-</div>
+                    <div class="metric-label">Total Steps</div>
                 </div>
-                <div class="metric-item">
+                <div class="metric-card">
+                    <div class="metric-value" id="episodes">-</div>
                     <div class="metric-label">Episodes</div>
-                    <div class="metric-value" id="episode-count">--</div>
                 </div>
-                <div class="metric-item">
+                <div class="metric-card">
+                    <div class="metric-value" id="fps">-</div>
                     <div class="metric-label">Total FPS</div>
-                    <div class="metric-value" id="total-fps">--</div>
                 </div>
-                <div class="metric-item">
+                <div class="metric-card">
+                    <div class="metric-value" id="reward">-</div>
                     <div class="metric-label">Avg Reward</div>
-                    <div class="metric-value" id="avg-reward">--</div>
                 </div>
-                <div class="metric-item">
-                    <div class="metric-label">Avg Episode Length</div>
-                    <div class="metric-value" id="avg-length">--</div>
-                </div>
-                <div class="metric-item">
+                <div class="metric-card">
+                    <div class="metric-value" id="archive">-</div>
                     <div class="metric-label">Archive Size</div>
-                    <div class="metric-value" id="archive-size">--</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-label">Discovery Rate</div>
-                    <div class="metric-value" id="discovery-rate">-- cells/hr</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-label">Policy Entropy</div>
-                    <div class="metric-value" id="entropy">--</div>
-                </div>
-            </div>
-            <div class="metrics-timestamp">
-                Last updated: <span id="metrics-timestamp">--</span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Pokemon Events Panel -->
-    <div class="metrics-panel" id="events-panel" style="display: none;">
-        <div class="metrics-header">
-            <h3>🎮 Pokemon Events</h3>
-            <div class="metrics-toggle">
-                <button class="control-button" onclick="toggleEvents()" id="events-btn">🎯 Show Events</button>
-            </div>
-        </div>
-        <div class="metrics-content" id="events-content">
-            <div class="events-summary" id="events-summary">
-                <div class="metrics-grid">
-                    <div class="metric-item">
-                        <div class="metric-label">Pokemon Caught</div>
-                        <div class="metric-value" id="total-pokemon-caught">--</div>
-                    </div>
-                    <div class="metric-item">
-                        <div class="metric-label">Badges Earned</div>
-                        <div class="metric-value" id="total-badges-earned">--</div>
-                    </div>
-                    <div class="metric-item">
-                        <div class="metric-label">Locations Visited</div>
-                        <div class="metric-value" id="total-locations-visited">--</div>
-                    </div>
-                    <div class="metric-item">
-                        <div class="metric-label">Names Given</div>
-                        <div class="metric-value" id="total-names-given">--</div>
-                    </div>
                 </div>
             </div>
             
-            <div class="environment-details" id="environment-details">
-                <h4 style="color: #4CAF50; margin-top: 20px;">Environment Details</h4>
-                <div class="env-details-grid" id="env-details-grid">
-                    <!-- Environment-specific details will be populated here -->
-                </div>
-            </div>
-            
-            <div class="recent-events" id="recent-events">
-                <h4 style="color: #4CAF50; margin-top: 20px;">Recent Events (All Environments)</h4>
-                <div class="events-feed" id="events-feed">
-                    <div class="event-placeholder">No events yet - waiting for training to progress...</div>
-                </div>
-            </div>
-            
-            <div class="metrics-timestamp">
-                Last updated: <span id="events-timestamp">--</span>
+            <div class="logs" id="recentLogs">
+                Loading training logs...
             </div>
         </div>
-    </div>
-    
-    <div class="controls">
-        <button class="control-button" onclick="refreshAll()">🔄 Refresh Now</button>
-        <button class="control-button" onclick="toggleAutoRefresh()" id="auto-refresh-btn">⏸️ Pause Auto Refresh</button>
-        <button class="control-button" onclick="toggleMetrics()" id="metrics-btn">📊 Show Metrics</button>
-        <button class="control-button" onclick="toggleEvents()" id="events-btn">🎯 Show Events</button>
-        <button class="control-button" onclick="openFullscreen()">🖼️ Fullscreen Grid</button>
-    </div>
-    
-    <div class="grid" id="env-grid">
-        <!-- Environment screenshots will be populated here -->
-    </div>
-    
-    <div class="refresh-timer" id="refresh-timer">
-        Next refresh in: <span id="countdown">5</span> seconds
+        
+        <div class="panel">
+            <h2>📸 Environment Screenshots</h2>
+            <p>Latest screenshots from all training environments (refreshed every 10 seconds)</p>
+            
+            <div class="screenshots-grid" id="screenshotsGrid">
+                <!-- Screenshots will be loaded here -->
+            </div>
+        </div>
     </div>
 
     <script>
-        let autoRefreshEnabled = true;
         let refreshInterval;
-        let countdownInterval;
-        let countdown = 5;
-        const REFRESH_SECONDS = 5;
         
-        function createEnvironmentContainer(envIndex) {
-            return `
-                <div class="env-container">
-                    <div class="env-header">Environment ${envIndex.toString().padStart(2, '0')}</div>
-                    <div class="screenshot-container">
-                        <img class="screenshot" 
-                             src="progress_screenshots/env_${envIndex.toString().padStart(2, '0')}/latest.png" 
-                             alt="Environment ${envIndex} Screenshot"
-                             onerror="this.onerror=null; this.parentElement.innerHTML='<div class=&quot;error-message&quot;>No screenshot available</div>'"
-                             onload="updateTimestamp(${envIndex})">
-                    </div>
-                    <div class="env-info">
-                        <span>Env #${envIndex}</span>
-                        <span class="timestamp" id="timestamp-${envIndex}">--</span>
-                    </div>
-                </div>
-            `;
+        function refreshMetrics() {
+            loadTrainingMetrics();
+            loadScreenshots();
         }
         
-        function initializeGrid() {
-            const grid = document.getElementById('env-grid');
-            const envCount = 10; // Default to 10 environments
+        function loadTrainingMetrics() {
+            // Try to load vector metrics from optimal config first
+            fetch('pokemon_vector_logs_optimal/vector_metrics.csv')
+                .then(response => response.text())
+                .then(data => {
+                    parseVectorMetrics(data);
+                    updateStatus('running', 'Vector training active (Optimal Config)');
+                })
+                .catch(() => {
+                    // Try standard vector logs directory
+                    fetch('pokemon_vector_logs/vector_metrics.csv')
+                        .then(response => response.text())
+                        .then(data => {
+                            parseVectorMetrics(data);
+                            updateStatus('running', 'Vector training active');
+                        })
+                        .catch(() => {
+                            // Fallback to single environment metrics
+                            fetch('logs/metrics.csv')
+                                .then(response => response.text())
+                                .then(data => {
+                                    parseSingleMetrics(data);
+                                    updateStatus('running', 'Single environment training active');
+                                })
+                                .catch(() => {
+                                    updateStatus('stopped', 'No training detected');
+                                    clearMetrics();
+                                });
+                        });
+                });
+        }
+        
+        function parseVectorMetrics(csvData) {
+            const lines = csvData.trim().split('\n');
+            if (lines.length < 2) return;
             
-            grid.innerHTML = '';
-            for (let i = 0; i < envCount; i++) {
-                grid.innerHTML += createEnvironmentContainer(i);
+            const lastLine = lines[lines.length - 1];
+            const values = lastLine.split(',');
+            
+            if (values.length >= 15) {
+                document.getElementById('epoch').textContent = values[0] || '-';
+                document.getElementById('steps').textContent = parseInt(values[1] || 0).toLocaleString();
+                document.getElementById('episodes').textContent = values[2] || '-';
+                document.getElementById('fps').textContent = parseFloat(values[3] || 0).toFixed(1);
+                document.getElementById('reward').textContent = parseFloat(values[5] || 0).toFixed(3);
+                document.getElementById('archive').textContent = parseInt(values[13] || 0).toLocaleString();
+                
+                // Show recent log entries
+                const recentLines = lines.slice(-5).reverse();
+                const logsHtml = recentLines.map(line => {
+                    const vals = line.split(',');
+                    if (vals.length >= 4) {
+                        return `Epoch ${vals[0]}: ${parseFloat(vals[3] || 0).toFixed(1)} FPS, Archive: ${parseInt(vals[13] || 0).toLocaleString()}`;
+                    }
+                    return line;
+                }).join('\n');
+                
+                document.getElementById('recentLogs').textContent = logsHtml;
             }
         }
         
-        function updateTimestamp(envIndex) {
-            const timestamp = new Date().toLocaleTimeString();
-            const timestampElement = document.getElementById(`timestamp-${envIndex}`);
-            if (timestampElement) {
-                timestampElement.textContent = timestamp;
+        function parseSingleMetrics(csvData) {
+            const lines = csvData.trim().split('\n');
+            if (lines.length < 2) return;
+            
+            const lastLine = lines[lines.length - 1];
+            const values = lastLine.split(',');
+            
+            if (values.length >= 10) {
+                document.getElementById('epoch').textContent = values[0] || '-';
+                document.getElementById('steps').textContent = parseInt(values[1] || 0).toLocaleString();
+                document.getElementById('episodes').textContent = values[2] || '-';
+                document.getElementById('fps').textContent = parseFloat(values[3] || 0).toFixed(1);
+                document.getElementById('reward').textContent = parseFloat(values[4] || 0).toFixed(3);
+                document.getElementById('archive').textContent = parseInt(values[12] || 0).toLocaleString();
+                
+                document.getElementById('recentLogs').textContent = 'Single environment training mode\\nCheck logs/metrics.csv for details';
             }
         }
         
-        function refreshAll() {
-            const images = document.querySelectorAll('.screenshot');
-            const timestamp = Date.now();
-            
-            images.forEach((img, index) => {
-                const originalSrc = img.src.split('?')[0]; // Remove any existing timestamp
-                img.src = `${originalSrc}?t=${timestamp}`;
+        function clearMetrics() {
+            ['epoch', 'steps', 'episodes', 'fps', 'reward', 'archive'].forEach(id => {
+                document.getElementById(id).textContent = '-';
             });
-            
-            // Also refresh metrics if panel is visible
-            const metricsPanel = document.getElementById('metrics-panel');
-            if (metricsPanel.style.display !== 'none') {
-                loadMetrics();
-            }
-            
-            // Also refresh events if panel is visible
-            const eventsPanel = document.getElementById('events-panel');
-            if (eventsPanel.style.display !== 'none') {
-                loadEvents();
-            }
-            
-            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-            resetCountdown();
+            document.getElementById('recentLogs').textContent = 'No training data available';
         }
         
-        function toggleAutoRefresh() {
-            autoRefreshEnabled = !autoRefreshEnabled;
-            const button = document.getElementById('auto-refresh-btn');
-            const status = document.getElementById('refresh-status');
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+        
+        function loadScreenshots() {
+            const grid = document.getElementById('screenshotsGrid');
             
-            if (autoRefreshEnabled) {
-                button.textContent = '⏸️ Pause Auto Refresh';
-                status.innerHTML = 'ON <span class="auto-refresh-indicator"></span>';
-                startAutoRefresh();
-            } else {
-                button.textContent = '▶️ Start Auto Refresh';
-                status.textContent = 'OFF';
-                stopAutoRefresh();
-            }
-        }
-        
-        function startAutoRefresh() {
-            if (refreshInterval) clearInterval(refreshInterval);
-            if (countdownInterval) clearInterval(countdownInterval);
+            // Try to detect number of environments from 10 down to 1
+            let environmentsFound = 0;
+            const screenshotPromises = [];
             
-            refreshInterval = setInterval(refreshAll, REFRESH_SECONDS * 1000);
-            startCountdown();
-        }
-        
-        function stopAutoRefresh() {
-            if (refreshInterval) clearInterval(refreshInterval);
-            if (countdownInterval) clearInterval(countdownInterval);
-            document.getElementById('countdown').textContent = '--';
-        }
-        
-        function startCountdown() {
-            countdown = REFRESH_SECONDS;
-            countdownInterval = setInterval(() => {
-                countdown--;
-                document.getElementById('countdown').textContent = countdown;
+            for (let i = 0; i < 10; i++) {
+                const envId = i.toString().padStart(2, '0');
+                const screenshotPath = `progress_screenshots/env_${envId}/latest.png`;
                 
-                if (countdown <= 0) {
-                    countdown = REFRESH_SECONDS;
-                }
-            }, 1000);
-        }
-        
-        function resetCountdown() {
-            countdown = REFRESH_SECONDS;
-            document.getElementById('countdown').textContent = countdown;
-        }
-        
-        function openFullscreen() {
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
+                screenshotPromises.push(
+                    fetch(screenshotPath)
+                        .then(response => {
+                            if (response.ok) {
+                                return { envId, path: screenshotPath, exists: true };
+                            } else {
+                                return { envId, path: screenshotPath, exists: false };
+                            }
+                        })
+                        .catch(() => ({ envId, path: screenshotPath, exists: false }))
+                );
             }
-        }
-        
-        function toggleMetrics() {
-            const panel = document.getElementById('metrics-panel');
-            const button = document.getElementById('metrics-btn');
             
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block';
-                button.textContent = '📊 Hide Metrics';
-                loadMetrics(); // Load metrics when showing
-            } else {
-                panel.style.display = 'none';
-                button.textContent = '📊 Show Metrics';
-            }
-        }
-        
-        function toggleEvents() {
-            const panel = document.getElementById('events-panel');
-            const button = document.getElementById('events-btn');
-            
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block';
-                button.textContent = '🎯 Hide Events';
-                loadEvents(); // Load events when showing
-            } else {
-                panel.style.display = 'none';
-                button.textContent = '🎯 Show Events';
-            }
-        }
-        
-        async function loadEvents() {
-            try {
-                // Try to load event data from the dashboard endpoint
-                const response = await fetch('pokemon_events/dashboard.json');
-                let eventData;
+            Promise.all(screenshotPromises).then(results => {
+                const existingScreenshots = results.filter(r => r.exists);
                 
-                if (response.ok) {
-                    eventData = await response.json();
-                } else {
-                    // Generate mock data if no real data available
-                    eventData = generateMockEventData();
+                if (existingScreenshots.length === 0) {
+                    grid.innerHTML = '<div class="error">No screenshots available. Enable progress monitoring with --monitor-progress flag.</div>';
+                    return;
                 }
                 
-                updateEventsPanel(eventData);
-                
-            } catch (error) {
-                console.warn('Could not load events:', error.message);
-                // Show placeholder when no data available
-                updateEventsPanel(generateMockEventData());
-            }
-        }
-        
-        function generateMockEventData() {
-            return {
-                stats: {
-                    total_events: 0,
-                    events_by_type: {
-                        'pokemon_caught': 0,
-                        'badge_earned': 0,
-                        'location_changed': 0,
-                        'player_named': 0
-                    },
-                    environments: {}
-                },
-                recent_events: {},
-                timestamp: new Date().toISOString()
-            };
-        }
-        
-        function updateEventsPanel(eventData) {
-            // Update summary statistics
-            const stats = eventData.stats || {};
-            const eventsByType = stats.events_by_type || {};
-            
-            document.getElementById('total-pokemon-caught').textContent = eventsByType['pokemon_caught'] || 0;
-            document.getElementById('total-badges-earned').textContent = eventsByType['badge_earned'] || 0;
-            document.getElementById('total-locations-visited').textContent = eventsByType['location_changed'] || 0;
-            document.getElementById('total-names-given').textContent = (eventsByType['player_named'] || 0) + (eventsByType['rival_named'] || 0);
-            
-            // Update environment details
-            const envGrid = document.getElementById('env-details-grid');
-            envGrid.innerHTML = '';
-            
-            for (let envId = 0; envId < 10; envId++) {
-                const envStats = stats.environments && stats.environments[envId] ? stats.environments[envId] : { total_events: 0, events_by_type: {} };
-                
-                const envItem = document.createElement('div');
-                envItem.className = 'env-detail-item';
-                envItem.innerHTML = `
-                    <div class="env-detail-header">Env ${envId.toString().padStart(2, '0')}</div>
-                    <div class="env-detail-content">
-                        Caught: ${envStats.events_by_type['pokemon_caught'] || 0}<br>
-                        Badges: ${envStats.events_by_type['badge_earned'] || 0}<br>
-                        Moves: ${envStats.events_by_type['location_changed'] || 0}<br>
-                        Events: ${envStats.total_events || 0}
+                grid.innerHTML = existingScreenshots.map(screenshot => `
+                    <div class="screenshot-card">
+                        <img src="${screenshot.path}?t=${Date.now()}" 
+                             alt="Environment ${screenshot.envId}" 
+                             onerror="this.style.display='none'">
+                        <div class="env-label">Env ${screenshot.envId}</div>
                     </div>
-                `;
-                envGrid.appendChild(envItem);
-            }
-            
-            // Update recent events feed
-            const eventsFeed = document.getElementById('events-feed');
-            eventsFeed.innerHTML = '';
-            
-            const recentEvents = eventData.recent_events || {};
-            const allEvents = [];
-            
-            // Collect all recent events from all environments
-            for (const [envId, events] of Object.entries(recentEvents)) {
-                events.forEach(event => {
-                    allEvents.push({...event, env_id: parseInt(envId)});
-                });
-            }
-            
-            // Sort by timestamp (newest first)
-            allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-            if (allEvents.length === 0) {
-                eventsFeed.innerHTML = '<div class="event-placeholder">No events yet - waiting for training to progress...</div>';
-            } else {
-                allEvents.slice(0, 20).forEach(event => {
-                    const eventItem = document.createElement('div');
-                    eventItem.className = 'event-item';
-                    
-                    const eventTypeText = event.event_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    const eventDataText = formatEventData(event.event_type, event.data);
-                    const timeText = new Date(event.timestamp * 1000).toLocaleTimeString();
-                    
-                    eventItem.innerHTML = `
-                        <div class="event-content">
-                            <span class="event-env">E${event.env_id.toString().padStart(2, '0')}</span>
-                            <span class="event-type">${eventTypeText}</span>
-                            <span class="event-data">${eventDataText}</span>
-                        </div>
-                        <div class="event-time">${timeText}</div>
-                    `;
-                    
-                    eventsFeed.appendChild(eventItem);
-                });
-            }
-            
-            document.getElementById('events-timestamp').textContent = new Date().toLocaleTimeString();
+                `).join('');
+            });
         }
         
-        function formatEventData(eventType, data) {
-            switch(eventType) {
-                case 'pokemon_caught':
-                    return `Party now has ${data.party_count} Pokemon`;
-                case 'badge_earned':
-                    return `Earned ${data.badge_name} Badge (${data.total_badges} total)`;
-                case 'location_changed':
-                    return `Moved to map ${data.new_map}`;
-                case 'player_named':
-                    return `Named player "${data.name}"`;
-                case 'rival_named':
-                    return `Named rival "${data.name}"`;
-                case 'party_updated':
-                    return `Party: ${data.party.join(', ')}`;
-                default:
-                    return JSON.stringify(data);
-            }
+        // Initialize and set up auto-refresh
+        function init() {
+            refreshMetrics();
+            
+            // Auto-refresh every 10 seconds
+            refreshInterval = setInterval(refreshMetrics, 10000);
         }
         
-        async function loadMetrics() {
-            try {
-                // Try to load the CSV metrics file
-                const response = await fetch('pokemon_vector_logs/vector_metrics.csv');
-                if (!response.ok) {
-                    throw new Error('Metrics file not found');
-                }
-                
-                const csvText = await response.text();
-                const lines = csvText.trim().split('\n');
-                
-                if (lines.length < 2) {
-                    throw new Error('No metrics data available yet');
-                }
-                
-                // Get the last line (most recent data)
-                const headers = lines[0].split(',');
-                const lastData = lines[lines.length - 1].split(',');
-                
-                // Create a data object
-                const metrics = {};
-                headers.forEach((header, index) => {
-                    metrics[header.trim()] = lastData[index]?.trim() || '--';
-                });
-                
-                // Update the UI elements
-                document.getElementById('current-epoch').textContent = metrics['epoch'] || '--';
-                document.getElementById('global-steps').textContent = formatNumber(metrics['global_step']) || '--';
-                document.getElementById('episode-count').textContent = formatNumber(metrics['episode_count']) || '--';
-                document.getElementById('total-fps').textContent = parseFloat(metrics['total_fps']).toFixed(1) || '--';
-                document.getElementById('avg-reward').textContent = parseFloat(metrics['episode_reward_mean']).toFixed(3) || '--';
-                document.getElementById('avg-length').textContent = parseFloat(metrics['episode_length_mean']).toFixed(1) || '--';
-                document.getElementById('archive-size').textContent = formatNumber(metrics['archive_size']) || '--';
-                document.getElementById('discovery-rate').textContent = Math.round(parseFloat(metrics['cells_per_hour'])) + ' cells/hr' || '-- cells/hr';
-                document.getElementById('entropy').textContent = parseFloat(metrics['entropy']).toFixed(3) || '--';
-                
-                document.getElementById('metrics-timestamp').textContent = new Date().toLocaleTimeString();
-                
-            } catch (error) {
-                console.warn('Could not load metrics:', error.message);
-                // Set placeholder values
-                document.getElementById('current-epoch').textContent = 'Waiting...';
-                document.getElementById('global-steps').textContent = 'Training...';
-                document.getElementById('episode-count').textContent = 'Starting...';
-                document.getElementById('metrics-timestamp').textContent = 'No data yet';
-            }
-        }
-        
-        function formatNumber(num) {
-            if (!num || isNaN(num)) return '--';
-            const number = parseInt(num);
-            if (number >= 1000000) {
-                return (number / 1000000).toFixed(1) + 'M';
-            } else if (number >= 1000) {
-                return (number / 1000).toFixed(1) + 'K';
-            } else {
-                return number.toString();
-            }
-        }
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(event) {
-            switch(event.key) {
-                case 'r':
-                case 'R':
-                    refreshAll();
-                    break;
-                case ' ':
-                    event.preventDefault();
-                    toggleAutoRefresh();
-                    break;
-                case 'f':
-                case 'F':
-                    openFullscreen();
-                    break;
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
             }
         });
         
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeGrid();
-            refreshAll();
-            if (autoRefreshEnabled) {
-                startAutoRefresh();
-            }
-        });
-        
-        // Handle visibility change (pause when tab not visible)
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                stopAutoRefresh();
-            } else if (autoRefreshEnabled) {
-                startAutoRefresh();
-                refreshAll(); // Refresh immediately when tab becomes visible
-            }
-        });
+        // Start when page loads
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
